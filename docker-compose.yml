@@ -1,0 +1,11 @@
+---
+services:
+
+  es:
+    build:
+      context: .
+    image: informaticsmatters/squonk2-fastapi-ws-event-stream:latest
+    container_name: es
+    ports:
+    - '8080:8080'
+    - '8081:8081'

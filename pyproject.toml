@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "squonk2-fastapi-ws-event-stream"
+version = "1.0.0"
+package-mode = false
+description = "A Python FastAPI Squonk2 AS EvenStream Service"
+authors = ["Alan Christie <alan.christie@matildapeak.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+# Locked versions (for now)
+fastapi = "0.115.8"
+uvicorn = "0.34.0"
+
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.0.0"
+pylint = "^3.3.4"
+httpie = "^3.2.4"
+isort = "^6.0.0"
+black = "^25.1.0"
+mypy = "^1.15.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

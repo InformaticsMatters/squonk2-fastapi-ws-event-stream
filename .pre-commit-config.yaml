@@ -1,0 +1,63 @@
+---
+minimum_pre_commit_version: 4.0.0
+
+repos:
+
+# commit-msg hooks
+# ----------
+
+# Conventional Commit message checker (commitizen)
+- repo: https://github.com/commitizen-tools/commitizen
+  rev: v4.1.0
+  hooks:
+  - id: commitizen
+    stages:
+    - commit-msg
+
+# pre-commit hooks
+# ----------
+
+# Hooks that actively "change" files (formatters etc.)
+# ----------------------------------
+
+# Standard pre-commit rules
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-case-conflict
+  - id: check-docstring-first
+  - id: check-executables-have-shebangs
+  - id: check-shebang-scripts-are-executable
+  - id: detect-private-key
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+    args:
+    - --markdown-linebreak-ext=md
+
+# isort (in black-compatibility mode)
+- repo: https://github.com/pycqa/isort
+  rev: 6.0.0
+  hooks:
+  - id: isort
+    args:
+    - --profile
+    - black
+    - --filter-files
+
+# Black (uncompromising) Python code formatter
+- repo: https://github.com/psf/black
+  rev: 25.1.0
+  hooks:
+  - id: black
+    args:
+    - --target-version
+    - py312
+
+# pylint
+- repo: https://github.com/pycqa/pylint
+  rev: v3.3.4
+  hooks:
+  - id: pylint
+    args:
+    - --disable=import-error
+    - --py-version=3.12
