@@ -7,11 +7,11 @@ LABEL maintainer='Alan Christie <achristie@informaticsmatters.com>'
 
 # Force the binary layer of the stdout and stderr streams
 # to be unbuffered
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 # Base directory for the application
 # Also used for user directory
-ENV APP_ROOT /home/es
+ENV APP_ROOT=/home/es
 
 WORKDIR ${APP_ROOT}
 
@@ -45,7 +45,7 @@ FROM python-base AS final
 
 COPY --from=poetry-base /.venv /.venv
 
-ENV PYTHONPATH="${PYTHONPATH}:/.venv/lib/python3.13/site-packages/"
+ENV PYTHONPATH="/.venv/lib/python3.13/site-packages/"
 ENV PATH=/.venv/bin:$PATH
 
 COPY app/ ./app/
@@ -63,7 +63,7 @@ WORKDIR /data
 WORKDIR /log
 
 # Switch to container user
-ENV HOME ${APP_ROOT}
+ENV HOME=${APP_ROOT}
 WORKDIR ${APP_ROOT}
 
 # Start the application
