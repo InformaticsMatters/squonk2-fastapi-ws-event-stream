@@ -1,11 +1,32 @@
 ---
 services:
 
+  rabbitmq:
+    # Here we deliberately use a recent RabbitMQ
+    # to ensure the application is compatible with it.
+    # This version may differ from the version used in production
+    image: rabbitmq:4.0.5-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_NODENAME: rabbit@localhost
+      RABBITMQ_DEFAULT_USER: es
+      RABBITMQ_DEFAULT_PASS: cheddar1963
+    ports:
+    - '4369:4369'
+    - '5672:5672'
+    - '15672:15672'
+    - '25672:25672'
+
   es:
     build:
       context: .
     image: informaticsmatters/squonk2-fastapi-ws-event-stream:latest
     container_name: es
+    environment:
+      AMPQ_URL: 'amqp://es:cheddar1963@rabbitmq:5672'
+      INGRESS_LOCATION: 'localhost:8080'
     ports:
+    # Public (Websocket)
     - '8080:8080'
+    # Internal (API)
     - '8081:8081'
