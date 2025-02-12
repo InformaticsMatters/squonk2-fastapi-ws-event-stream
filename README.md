@@ -41,6 +41,20 @@ current health of your clone with: -
 
     pre-commit run --all-files
 
+## Local execution
+You can build and run the service using `docker compose`: -
+
+    docker compose up --build --detach
+
+And then interact with it using `http`, where you should be able to create
+and delete event streams using the internal API. Here we're using
+`jq` to process the response body to simplify the subsequent **DELETE** request: -
+
+    ES_ID=$(http post localhost:8081/event-stream/ routing_key=0123456789 -b | jq -r ".id")
+    echo $ES_ID
+
+    http delete localhost:8081/event-stream/$ES_ID -b
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable

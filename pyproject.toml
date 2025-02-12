@@ -2,7 +2,7 @@
 name = "squonk2-fastapi-ws-event-stream"
 version = "1.0.0"
 package-mode = false
-description = "A Python FastAPI Squonk2 AS EvenStream Service"
+description = "A Squonk2 Python FastAPI AS EvenStream Service"
 authors = ["Alan Christie <alan.christie@matildapeak.com>"]
 readme = "README.md"
 
@@ -10,7 +10,8 @@ readme = "README.md"
 # Locked versions (for now)
 fastapi = "0.115.8"
 uvicorn = "0.34.0"
-
+# Flexible versions
+pydantic = "^2.10.6"
 python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
