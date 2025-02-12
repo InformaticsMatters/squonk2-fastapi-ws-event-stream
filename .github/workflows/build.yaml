@@ -68,4 +68,4 @@ jobs:
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        tags: ${owner}/squonk2-fastapi-ws-event-stream:latest
+        tags: ${{ env.owner }}/squonk2-fastapi-ws-event-stream:latest
