@@ -38,10 +38,14 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Set lower case owner name
+      run: echo "owner=${OWNER,,}" >> "$GITHUB_ENV"
+      env:
+        OWNER: '${{ github.repository_owner }}'
     - name: Build and Push
       uses: docker/build-push-action@v6
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        tags: ${{ github.repository_owner }}/squonk2-fastapi-ws-event-stream:${{ github.ref_name }}
+        tags: ${owner}/squonk2-fastapi-ws-event-stream:${{ github.ref_name }}
         push: true

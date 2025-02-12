@@ -59,9 +59,13 @@ jobs:
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+    - name: Set lower case owner name
+      run: echo "owner=${OWNER,,}" >> "$GITHUB_ENV"
+      env:
+        OWNER: '${{ github.repository_owner }}'
     - name: Build
       uses: docker/build-push-action@v6
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        tags: ${{ github.repository_owner }}/squonk2-fastapi-ws-event-stream:latest
+        tags: ${owner}/squonk2-fastapi-ws-event-stream:latest
