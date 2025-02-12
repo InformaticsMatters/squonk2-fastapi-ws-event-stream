@@ -19,6 +19,9 @@ name: build
 
 on:
   push:
+  schedule:
+  # Build every Sunday (0) at 4:45pm
+  - cron: '45 16 * * 0'
 
 jobs:
   lint:
@@ -52,18 +55,9 @@ jobs:
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    - name: Cache Docker layers
-      uses: actions/cache@v4
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
     - name: Build
       uses: docker/build-push-action@v6
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        tags: ${{ github.repository_owner }}/squonk2-fastapi-ws-event-stream:${{ env.GITHUB_REF_SLUG }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache
+        tags: ${{ github.repository_owner }}/squonk2-fastapi-ws-event-stream:latest
