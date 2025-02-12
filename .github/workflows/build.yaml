@@ -39,10 +39,10 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: $PYTHON_VERSION
+        python-version: env.PYTHON_VERSION
     - name: Run pre-commit (all files)
       run: |
-        pip install --no-cache-dir poetry==$POETRY_VERSION
+        pip install --no-cache-dir poetry==env.POETRY_VERSION
         poetry install --no-root --no-directory --with docs
         poetry run pre-commit run --all-files
     - name: Docker build
