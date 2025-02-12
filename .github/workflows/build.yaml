@@ -39,7 +39,7 @@ jobs:
     - name: Run pre-commit (all files)
       run: |
         pip install --no-cache-dir poetry=='1.8.5'
-        poetry install --no-root --no-directory --with docs
+        poetry install --no-root --no-directory --with dev
         poetry run pre-commit run --all-files
     - name: Docker build
       uses: docker/build-push-action@v6
