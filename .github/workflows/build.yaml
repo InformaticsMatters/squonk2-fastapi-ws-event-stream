@@ -48,7 +48,6 @@ jobs:
         poetry run pre-commit run --all-files
 
   build:
-    needs: lint
     runs-on: ubuntu-latest
     steps:
     - name: Inject slug/short variables
