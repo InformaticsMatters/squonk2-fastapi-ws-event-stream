@@ -1,6 +1,5 @@
 # The default base image
-ARG from_image=python:3.12.9-slim
-ARG image_tag=0.0.0
+ARG from_image=python:3.12.9-alpine3.21
 FROM ${from_image} AS python-base
 
 # Labels
@@ -22,7 +21,6 @@ WORKDIR ${APP_ROOT}
 #
 ##################################################################
 FROM python-base AS poetry-base
-ARG image_tag
 ARG POETRY_VERSION=1.8.5
 
 RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
@@ -44,13 +42,11 @@ RUN POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-root --only main --no
 #
 ##################################################################
 FROM python-base AS final
-ARG image_tag
 
 COPY --from=poetry-base /.venv /.venv
 
 ENV PYTHONPATH="${PYTHONPATH}:/.venv/lib/python3.13/site-packages/"
 ENV PATH=/.venv/bin:$PATH
-ENV IMAGE_TAG=${image_tag}
 
 COPY app/ ./app/
 COPY logging.config .
