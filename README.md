@@ -1,8 +1,16 @@
 # Squonk2 FastAPI WebSocket Event Stream
+
+[![build](https://github.com/InformaticsMatters/squonk2-fastapi-ws-event-stream/actions/workflows/build.yaml/badge.svg)](https://github.com/InformaticsMatters/squonk2-fastapi-ws-event-stream/actions/workflows/build.yaml)
+
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Packaged with Poetry](https://img.shields.io/badge/packaging-poetry-cyan.svg)](https://python-poetry.org/)
+
 A FastAPI (Python) implementation of the Squonk2 (AS) Event Streaming service.
 
 This repository is responsible for the container image that implements
-the even-streaming service of the Squonk2 AS platform and is deployed to the
+the event-streaming service of the Squonk2 AS platform and is deployed to the
 Namespace of the AS to service internal requests from the API to create, delete
 and connect to the internal messaging bus to stream events to a client.
 

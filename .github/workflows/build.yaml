@@ -20,6 +20,10 @@ name: build
 on:
   push:
 
+env:
+  POETRY_VERSION: '1.8.5'
+  PYTHON_VERSION: '3.12'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,11 +39,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: ${PYTHON_VERSION}
     - name: Run pre-commit (all files)
       run: |
-        pip install --requirement build-requirements.txt
-        pre-commit run --all-files
+        pip install --no-cache-dir poetry==${POETRY_VERSION}
+        poetry install --no-root --no-directory --with docs
+        poetry run pre-commit run --all-files
     - name: Docker build
       uses: docker/build-push-action@v6
       with:
