@@ -29,12 +29,16 @@ _LOGGER = logging.getLogger(__name__)
 app_public = FastAPI()
 app_internal = FastAPI()
 
-_INGRESS_LOCATION: str = os.getenv("INGRESS_LOCATION")
-assert _INGRESS_LOCATION, "INGRESS_LOCATION environment variable must be set"
+# Configuration...
+_INGRESS_LOCATION: str = os.getenv("WS_INGRESS_LOCATION", "localhost:8080")
+assert _INGRESS_LOCATION, "WS_INGRESS_LOCATION environment variable must be set"
+_INGRESS_SECURE: bool = os.getenv("WS_INGRESS_SECURE", "no").lower() == "yes"
+_LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
+_LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
 
 _AMPQ_EXCHANGE: str = "event-streams"
-_AMPQ_URL: str = os.getenv("AMPQ_URL")
-assert _AMPQ_URL, "AMPQ_URL environment variable must be set"
+_AMPQ_URL: str = os.getenv("WS_AMPQ_URL", "")
+assert _AMPQ_URL, "WS_AMPQ_URL environment variable must be set"
 _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
 
 # Create our local database.
@@ -43,7 +47,6 @@ _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
 # value when NONE is passed in as it's value.
 _DATABASE_PATH = "/data/event-streams.db"
 _LOGGER.info("Creating SQLite database (%s)...", _DATABASE_PATH)
-
 _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
 _CUR = _DB_CONNECTION.cursor()
 _CUR.execute(
@@ -51,7 +54,6 @@ _CUR.execute(
 )
 _DB_CONNECTION.commit()
 _DB_CONNECTION.close()
-
 _LOGGER.info("Created.")
 
 
@@ -139,8 +141,11 @@ def post_es(request_body: EventStreamPostRequestBody):
     and an ID the event stream is known by (that can be used to delete the stream).
     In our case, it's a WebSocket URL like 'ws://localhost:8000/event-stream/0000'.
     """
+    # Generate am new (difficult to guess) UUID for the event stream...
     uuid_str: str = shortuuid.uuid()
-    location: str = f"ws://{_INGRESS_LOCATION}/event-stream/{uuid_str}"
+    # And construct the location we'll be listening on...
+    location: str = "wss://" if _INGRESS_SECURE else "ws://"
+    location += f"{_INGRESS_LOCATION}/event-stream/{uuid_str}"
 
     # Create a new ES record...
     # An ID is assigned automatically -
