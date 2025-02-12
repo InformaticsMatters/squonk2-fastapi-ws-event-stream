@@ -66,7 +66,6 @@ WORKDIR /log
 # Switch to container user
 ENV HOME ${APP_ROOT}
 WORKDIR ${APP_ROOT}
-USER root
 
 # Start the application
-CMD ./docker-entrypoint.sh
+CMD ["./docker-entrypoint.sh"]
