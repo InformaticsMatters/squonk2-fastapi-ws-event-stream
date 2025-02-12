@@ -53,6 +53,7 @@ ENV PATH=/.venv/bin:$PATH
 ENV IMAGE_TAG=${image_tag}
 
 COPY app/ ./app/
+COPY logging.config .
 COPY docker-entrypoint.sh .
 
 # Probes...
@@ -60,6 +61,8 @@ COPY probes/*.sh .
 # Kubernetes lifecycle hooks...
 COPY hooks/*.sh .
 
+# Create a database directory
+WORKDIR /data
 # Create a base directory for file-based logging
 WORKDIR /log
 
