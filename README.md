@@ -5,7 +5,7 @@
 
 ![Architecture](https://img.shields.io/badge/architecture-amd64%20%7C%20arm64-lightgrey)
 
-[![Latest Release](https://gitlab.com/informaticsmatters/squonk2-fastapi-ws-event-stream/-/badges/release.svg)](https://gitlab.com/informaticsmatters/squonk2-fastapi-ws-event-stream/-/releases)
+![GitHub Release](https://img.shields.io/github/v/release/InformaticsMatters/squonk2-fastapi-ws-event-stream)
 
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
