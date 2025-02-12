@@ -47,5 +47,5 @@ jobs:
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        tags: ${owner}/squonk2-fastapi-ws-event-stream:${{ github.ref_name }}
+        tags: ${{ env.owner }}/squonk2-fastapi-ws-event-stream:${{ github.ref_name }}
         push: true
