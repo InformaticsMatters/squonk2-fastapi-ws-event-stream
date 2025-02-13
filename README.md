@@ -19,8 +19,15 @@ the event-streaming service of the Squonk2 AS platform and is deployed to the
 Namespace of the AS to service internal requests from the API to create, delete
 and connect to the internal messaging bus to stream events to a client.
 
-The implementation is based on Python and the [FastAPI] framework, offering an
-_internal_ API for use by the AS and a _public_ web-socket API for clients to connect to.
+The implementation is based on Python and the [FastAPI] framework, offering
+_public_ web-sockets managed by an _internal_ API, managed by the AS using
+the required endpoint: -
+
+    /event-stream POST
+    /event-stream/{id} DELETE
+
+See the AS Event Stream API documentation for more details, and the discussion
+of the [Event Streams] service on its internal wiki.
 
 ## Contributing
 The project uses: -
@@ -67,6 +74,7 @@ request: -
 [black]: https://black.readthedocs.io/en/stable
 [commitizen]: https://commitizen-tools.github.io/commitizen/
 [conventional commit]: https://www.conventionalcommits.org/en/v1.0.0/
+[event streams]: https://gitlab.com/informaticsmatters/squonk2-account-server/-/wikis/event-streams
 [fastapi]: https://fastapi.tiangolo.com
 [pre-commit]: https://pre-commit.com
 [poetry]: https://python-poetry.org/
