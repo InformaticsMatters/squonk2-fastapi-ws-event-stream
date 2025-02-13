@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """A simple WebSocket client for local testing.
 
-Usage: simple_ws_client.py <location>
+Usage: simple_es_subscriber.py <location>
 """
 import asyncio
 import sys
@@ -17,7 +17,7 @@ async def main():
     try:
         while True:
             data = await ws.receive()
-            print(f"< {data}")
+            print(str(data))
     except (KeyboardInterrupt, EOFError, ConnectionClosed):
         await ws.close()
 

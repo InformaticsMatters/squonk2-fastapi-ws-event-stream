@@ -24,6 +24,7 @@ httpie = "^3.2.4"
 isort = "^6.0.0"
 black = "^25.1.0"
 mypy = "^1.15.0"
+im-protobuf = "^7.1.0"
 
 [build-system]
 requires = ["poetry-core"]
