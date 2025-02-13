@@ -63,11 +63,20 @@ and delete event streams using the internal API. Here we're using
 `jq` and `cut` to process the response body to simplify the subsequent **DELETE**
 request: -
 
+To create (**POST**) an event stream, run the following:
+
     ES_LOC=$(http post localhost:8081/event-stream/ routing_key=0123456789 -b | jq -r ".location")
     echo $ES_LOC
     ES_ID=$(echo $ES_LOC | cut -d/ -f5)
+    echo $ES_ID
+
+To **DELETE** the event stream, run the following:
 
     http delete localhost:8081/event-stream/$ES_ID -b
+
+To list (**GET**) all the existing event streams, run the following:
+
+    http localhost:8081/event-stream/ -b
 
 ---
 

@@ -70,7 +70,9 @@ class EventStreamPostRequestBody(BaseModel):
 
 @app_public.websocket("/event-stream/{uuid}")
 async def event_stream(websocket: WebSocket, uuid: str):
-    """The websocket handler for the event-stream."""
+    """The websocket handler for the event-stream.
+    The actual location is returned to the AS when the web-socket is created
+    using a POST to /event-stream/."""
 
     # Get the DB record for this UUID...
     db = sqlite3.connect(_DATABASE_PATH)
@@ -144,8 +146,7 @@ def post_es(request_body: EventStreamPostRequestBody):
     # Generate am new (difficult to guess) UUID for the event stream...
     uuid_str: str = shortuuid.uuid()
     # And construct the location we'll be listening on...
-    location: str = "wss://" if _INGRESS_SECURE else "ws://"
-    location += f"{_INGRESS_LOCATION}/event-stream/{uuid_str}"
+    location: str = _get_location(uuid_str)
 
     # Create a new ES record...
     # An ID is assigned automatically -
@@ -170,6 +171,26 @@ def post_es(request_body: EventStreamPostRequestBody):
         "id": es[0],
         "location": location,
     }
+
+
+@app_internal.get("/event-stream/")
+def get_es():
+    """Returns a list of the details of all existing event-streams,
+    their IDs, locations, and routing keys."""
+
+    # Get the ES record (by primary key)
+    db = sqlite3.connect(_DATABASE_PATH)
+    cursor = db.cursor()
+    res = cursor.execute("SELECT * FROM es")
+    all_es = res.fetchall()
+    db.close()
+
+    event_streams = []
+    for es in all_es:
+        location: str = _get_location(es[1])
+        event_streams.append({"id": es[0], "location": location, "routing_key": es[2]})
+
+    return {"event-streams": event_streams}
 
 
 @app_internal.delete("/event-stream/{es_id}")
@@ -200,3 +221,10 @@ def delete_es(es_id: int):
     _LOGGER.info("Deleted %s", es_id)
 
     return {}
+
+
+def _get_location(uuid: str) -> str:
+    """Returns the location (URL) for the event stream with the given UUID."""
+    location: str = "wss://" if _INGRESS_SECURE else "ws://"
+    location += f"{_INGRESS_LOCATION}/event-stream/{uuid}"
+    return location
