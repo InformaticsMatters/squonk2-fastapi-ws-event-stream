@@ -148,21 +148,21 @@ def post_es(request_body: EventStreamPostRequestBody):
     # And construct the location we'll be listening on...
     location: str = _get_location(uuid_str)
 
-    # Create a new ES record...
+    # Create a new ES record.
     # An ID is assigned automatically -
-    # we just need to supply a short UUID and corresponding location.
-    _LOGGER.info("Creating new event stream: %s", uuid_str)
+    # we just need to provide a UUID and the routing key.
+    routing_key: str = request_body.routing_key
+    _LOGGER.info(
+        "Creating new event stream %s (routing_key=%s)...", uuid_str, routing_key
+    )
 
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
-    cursor.execute(
-        f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{request_body.routing_key}')"
-    )
+    cursor.execute(f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{routing_key}')")
     db.commit()
-    # Now pull the record back to get the assigned numeric ID...
-    res = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid_str}'")
-    es = res.fetchone()
-    assert es, "Failed to insert new event stream"
+    # Now pull the record back to get the assigned record ID...
+    es = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid_str}'").fetchone()
+    assert es, f"Failed to insert new event stream {uuid_str}"
     db.close()
 
     _LOGGER.info("Created %s", es)
@@ -181,8 +181,7 @@ def get_es():
     # Get the ES record (by primary key)
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
-    res = cursor.execute("SELECT * FROM es")
-    all_es = res.fetchall()
+    all_es = cursor.execute("SELECT * FROM es").fetchall()
     db.close()
 
     event_streams = []
@@ -197,13 +196,12 @@ def get_es():
 def delete_es(es_id: int):
     """Destroys an existing event-stream."""
 
-    _LOGGER.info("Deleting event stream: %s", es_id)
+    _LOGGER.info("Deleting event stream %s...", es_id)
 
     # Get the ES record (by primary key)
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
-    res = cursor.execute(f"SELECT * FROM es WHERE id={es_id}")
-    es = res.fetchone()
+    es = cursor.execute(f"SELECT * FROM es WHERE id={es_id}").fetchone()
     db.close()
     if not es:
         raise HTTPException(
