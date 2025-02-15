@@ -27,8 +27,8 @@ the required endpoint: -
     /event-stream GET
     /event-stream/{id} DELETE
 
-See the AS Event Stream API documentation for more details, and the discussion
-of the [Event Streams] service on its internal wiki.
+See the AS documentation for more details, and the discussion of the [Event Streams]
+service on its internal wiki.
 
 ## Contributing
 The project uses: -
@@ -61,6 +61,8 @@ need to customise the playbook by first defining your own variables.
 
 To install the application follow the steps below.
 
+>   You will need access to your Kubernetes cluster and a **KUBECONFIG** file.
+
 From a poetry shell, install the required dependencies: -
 
     poetry install --with deploy
@@ -80,8 +82,10 @@ accidental commits as it's in the project's `.gitignore` file: -
 
     cp parameters-template.yaml parameters.yaml
 
-Then, when you have set your variables, run the playbook: -
+Then, when you have set your variables, identify your **KUBECONFIG** file,
+and run the playbook: -
 
+    export KUBECONFIG=<path-to-your-kubeconfig>
     ansible-playbook site.yaml -e @parameters.yaml
 
 To remove the application run the playbook again, but set the `ess_state` variable
