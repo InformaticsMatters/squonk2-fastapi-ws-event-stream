@@ -54,7 +54,42 @@ current health of your clone with: -
 
     pre-commit run --all-files
 
-## Local execution
+## Installation
+The repository contains an ansible playbook that can be used to simplify the
+deployment of the application into a pre-existing Kubernetes **Namespace** but you will
+need to customise the playbook by first defining your own variables.
+
+To install the application follow the steps below.
+
+From a poetry shell, install the required dependencies: -
+
+    poetry install --with deploy
+
+Move to the `ansible` directory and define your variables: -
+
+    pushd ansible
+
+>   All the _required_ variables can be found at the top of the standard
+    `default/main.yaml` file, but you are advised to inspect all the variables to
+    ensure they are suitable for your installation (variables are defined in
+    `default/main.yaml` and `vars/main.yaml`).
+
+You can create a `parameters.yaml` file and set your variables there.
+A `parameters-template.yaml` file is provided as an example. This is protected from
+accidental commits as it's in the project's `.gitignore` file: -
+
+    cp parameters-template.yaml parameters.yaml
+
+Then, when you have set your variables, run the playbook: -
+
+    ansible-playbook site.yaml -e @parameters.yaml
+
+To remove the application run the playbook again, but set the `ess_state` variable
+to `absent`: -
+
+    ansible-playbook site.yaml -e @parameters.yaml -e ess_state=absent
+
+## Local development
 You can build and run the service using `docker compose`: -
 
     docker compose up --build --detach

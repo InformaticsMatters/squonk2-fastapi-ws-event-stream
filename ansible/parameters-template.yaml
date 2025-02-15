@@ -1,13 +1,12 @@
 ---
 
 # All the required variables...
-# Copy to 'parameter.yaml', which is excluded by the project's gitignore.
+# Copy to 'parameters.yaml', which is excluded by the project's gitignore.
 #
 # Review defaults/main.yaml and vars/main.yaml to see all the variables
-# and add any changes to suit your environment here.
+# and add any additional variables and values to suit your installation in this file.
+
 ess_namespace: SetMe
 ess_service_account: SetMe
 ess_ws_hostname: SetMe
 ess_ampq_url: SetMe
-
-ess_state: present
