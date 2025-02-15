@@ -24,7 +24,7 @@ _public_ web-sockets managed by an _internal_ API, managed by the AS using
 the required endpoint: -
 
     /event-stream POST
-    / event-stream GET
+    /event-stream GET
     /event-stream/{id} DELETE
 
 See the AS Event Stream API documentation for more details, and the discussion
