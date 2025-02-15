@@ -24,6 +24,7 @@ _public_ web-sockets managed by an _internal_ API, managed by the AS using
 the required endpoint: -
 
     /event-stream POST
+    / event-stream GET
     /event-stream/{id} DELETE
 
 See the AS Event Stream API documentation for more details, and the discussion
@@ -65,14 +66,14 @@ request: -
 
 To create (**POST**) an event stream, run the following:
 
-    ES_LOC=$(http post localhost:8081/event-stream/ routing_key=0123456789 -b | jq -r ".location")
-    echo $ES_LOC
-    ES_ID=$(echo $ES_LOC | cut -d/ -f5)
-    echo $ES_ID
+    ESS_LOC=$(http post localhost:8081/event-stream/ routing_key=0123456789 -b | jq -r ".location")
+    echo $ESS_LOC
+    ESS_ID=$(echo $ESS_LOC | cut -d/ -f5)
+    echo $ESS_ID
 
 To **DELETE** the event stream, run the following:
 
-    http delete localhost:8081/event-stream/$ES_ID -b
+    http delete localhost:8081/event-stream/$ESS_ID -b
 
 To list (**GET**) all the existing event streams, run the following:
 

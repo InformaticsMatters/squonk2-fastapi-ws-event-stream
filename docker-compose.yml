@@ -23,9 +23,9 @@ services:
     image: informaticsmatters/squonk2-fastapi-ws-event-stream:latest
     container_name: es
     environment:
-      WS_AMPQ_URL: 'amqp://es:cheddar1963@rabbitmq:5672'
-      WS_INGRESS_LOCATION: 'localhost:8080'
-      WS_INGRESS_SECURE: 'no'
+      ESS_AMPQ_URL: 'amqp://es:cheddar1963@rabbitmq:5672'
+      ESS_INGRESS_LOCATION: 'localhost:8080'
+      ESS_INGRESS_SECURE: 'no'
     ports:
     # Public (Websocket)
     - '8080:8080'
