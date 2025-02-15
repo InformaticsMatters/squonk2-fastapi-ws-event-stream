@@ -1,0 +1,15 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ess-internal-api
+  namespace: {{ ess_namespace }}
+  labels:
+    name: ess-internal-api
+spec:
+  selector:
+    name: ess
+  ports:
+  - name: internal
+    port: 8081
+    targetPort: internal

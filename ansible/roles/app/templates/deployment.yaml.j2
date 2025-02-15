@@ -1,0 +1,117 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ess
+  namespace: {{ ess_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      name: ess
+  template:
+    metadata:
+      name: ess
+      labels:
+        name: ess
+    spec:
+{% if ess_priority_class %}
+      priorityClassName: {{ ess_priority_class }}
+{% endif %}
+      serviceAccountName: account-server
+      terminationGracePeriodSeconds: {{ ess_api_termination_grace_period_seconds }}
+
+      # Avoid 'worker' nodes
+      # and prefer 'application' nodes
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-application
+                operator: Exists
+          - weight: 10
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-core
+                operator: Exists
+
+      containers:
+      - name: ess
+        image: {{ ess_image_owner }}/squonk2-fastapi-ws-event-stream:{{ ess_image_tag }}
+{% if ess_image_tag in ['latest', 'stable'] or ess_pull_policy_always %}
+        imagePullPolicy: Always
+{% else %}
+        imagePullPolicy: IfNotPresent
+{% endif %}
+        terminationMessagePolicy: FallbackToLogsOnError
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - /home/as/pre-stop-hook.sh
+        ports:
+        - containerPort: 8080
+          name: ws
+        - containerPort: 8081
+          name: internal
+        volumeMounts:
+        - mountPath: /data
+          name: database
+        env:
+        - name: ESS_AMPQ_URL
+          value: '{{ ess_ampq_url }}'
+        - name: ESS_INGRESS_LOCATION
+          value: '{{ ess_ws_hostname }}:{{ ess_ws_port }}'
+        - name: ESS_INGRESS_SECURE
+          value: 'yes'
+        # CICD_TRIGGER_ID is variable whose value is used to force
+        # a redeployment of the underlying containers. This is used in
+        # situations where the origin image's tag may not have changed
+        # (e.g. it's 'latest' or 'stable') but a new build is expected to
+        # be available. Without changing something in the Deployment spec
+        # a roll-out will not occur if the tag has not changed.
+        - name: CICD_TRIGGER_ID
+          value: '{{ ansible_date_time.iso8601_micro }}'
+        readinessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 20
+          timeoutSeconds: 3
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: {{ ess_api_cpu_request }}
+            memory: {{ ess_api_mem_request }}
+{% if ess_api_cpu_limit or ess_api_mem_limit %}
+          limits:
+{% if ess_api_cpu_limit %}
+            cpu: {{ ess_api_cpu_limit }}
+{% endif %}
+{% if ess_api_mem_limit %}
+            memory: {{ ess_api_mem_limit }}
+{% endif %}
+{% endif %}
+
+      volumes:
+      - name: database
+        persistentVolumeClaim:
+          claimName: ess-database

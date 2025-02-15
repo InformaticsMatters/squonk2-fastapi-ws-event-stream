@@ -1,0 +1,29 @@
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: ess
+  namespace: {{ ess_namespace }}
+  annotations:
+{% if ess_cert_issuer %}
+    cert-manager.io/cluster-issuer: "{{ ess_cert_manager_issuer_base|lower }}-{{ ess_cert_issuer|lower }}"
+{% endif %}
+spec:
+  ingressClassName: {{ ess_ingress_class }}
+{% if ess_cert_issuer %}
+  tls:
+  - hosts:
+    - {{ ess_ws_hostname }}
+    secretName: ess-tls
+{% endif %}
+  rules:
+  - host: {{ ess_ws_hostname }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ess-ws
+            port:
+              name: ws

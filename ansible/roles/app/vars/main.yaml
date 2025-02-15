@@ -1,0 +1,14 @@
+---
+
+# Ingress class
+ess_ingress_class: nginx
+# The base of each ClusterIssuer class.
+# Were we expect issuers to be something like 'letsencrypt-nginx'
+# and typically have 'letsencrypt-nginx-staging'
+# and 'letsencrypt-nginx-production'
+ess_cert_manager_issuer_base: letsencrypt-{{ ess_ingress_class }}
+# SSL certificate issuer?
+ess_cert_issuer: production
+
+ess_priority_class: ''
+ess_api_termination_grace_period_seconds: 30

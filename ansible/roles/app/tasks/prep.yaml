@@ -1,0 +1,29 @@
+---
+
+# Common playbook preparation.
+
+# Expose ansible version
+- name: Display Ansible version
+  debug:
+    var: ansible_version.full
+
+# Expose all the installed Python modules...
+
+- name: Capture pip freeze
+  command: pip freeze
+  register: freeze
+  changed_when: false
+
+- name: Display pip freeze
+  debug:
+    var: freeze.stdout_lines
+
+# Kubernetes credentials ------------------------------------------------------
+
+# We don't use the Kubernetes credentials directly,
+# but we load them into variables here from their
+# expected environment variables so that we can assert they've been set.
+
+- name: Set initial authentication facts
+  set_fact:
+    kubeconfig: "{{ lookup('env', 'KUBECONFIG') }}"

@@ -1,0 +1,40 @@
+---
+
+# Install (present) or remove (absent)?
+ess_state: present
+
+# Required but not provided ------------------------------------------------------------
+
+# The Namespace to install to (expected to exist)
+ess_namespace: SetMe
+# The Namespace Service Account to use (expected to exist)
+ess_service_account: SetMe
+# The hostname for our event streams (WebSockets)
+# For example 'example.com'.
+# Sockets will be made available at wss://{{ ess_hostname }}/event-stream/<id>
+ess_ws_hostname: SetMe
+# The AMQP URL for the RabbitMQ server.
+# This must include a username and password and typically an exchange.
+# For example 'amqp://username:password@rabbitmq:5672/es'
+ess_ampq_url: SetMe
+
+# Required with defaults ---------------------------------------------------------------
+
+# The external port number streams are exposed on
+ess_ws_port: 80
+
+# Our image details
+ess_image_owner: informaticsmatters
+ess_image_tag: 1.0.0-beta.3
+
+# Pull Policy? Always or IfNotPresent
+ess_pull_policy_always: IfNotPresent
+
+# Storage class for the DB (' ' implies default)
+ess_shared_volume_volume_storageclass: ' '
+
+# Pod resource requests and limits
+ess_api_cpu_request: 500m
+ess_api_cpu_limit: 1
+ess_api_mem_request: 1G
+ess_api_mem_limit: 1Gi

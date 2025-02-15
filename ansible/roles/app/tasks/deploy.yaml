@@ -1,0 +1,55 @@
+---
+
+- name: Assert key variables
+  ansible.builtin.assert:
+    that:
+    - ess_namespace | length > 0
+    - ess_namespace != 'SetMe'
+    - ess_service_account | length > 0
+    - ess_service_account != 'SetMe'
+    - ess_ws_hostname | length > 0
+    - ess_ws_hostname != 'SetMe'
+    - ess_ws_port | string | length > 0
+    - ess_ampq_url | length > 0
+    - ess_ampq_url != 'SetMe'
+
+# Check the namespace and other basic materials
+
+- name: Get Namespace ({{ ess_namespace }})
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    name: "{{ ess_namespace }}"
+  register: ns_result
+
+- name: Assert Namespace ({{ ess_namespace }})
+  ansible.builtin.assert:
+    that:
+    - ns_result.resources | length == 1
+
+- name: Get ServiceAccount
+  kubernetes.core.k8s_info:
+    kind: ServiceAccount
+    name: "{{ ess_service_account }}"
+    namespace: "{{ ess_namespace }}"
+  register: sa_result
+
+- name: Assert ServiceAccount
+  ansible.builtin.assert:
+    that:
+    - sa_result.resources | length == 1
+
+# Ok - looks like everything's set up. Let's deploy the ESS
+
+- name: Deploy PVC ({{ ess_namespace }})
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'pvc.yaml.j2') }}"
+
+- name: Deploy objects ({{ ess_namespace }})
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', '{{ item }}.yaml.j2') }}"
+    wait: yes
+  loop:
+  - deployment
+  - service-internal
+  - service-ws
+  - ingress

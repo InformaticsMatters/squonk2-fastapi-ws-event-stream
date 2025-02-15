@@ -1,0 +1,34 @@
+---
+
+- include_tasks: prep.yaml
+
+- name: Assert authentication
+  assert:
+    that:
+    - kubeconfig |string | length > 0
+
+- name: Display kubeconfig
+  debug:
+    var: kubeconfig
+
+# Go...
+
+- name: Deploy block
+  when: ess_state == 'present'
+  module_defaults:
+    group/k8s:
+      kubeconfig: "{{ kubeconfig }}"
+  block:
+
+  - name: Deploy
+    include_tasks: deploy.yaml
+
+- name: Undeploy block
+  when: ess_state == 'absent'
+  module_defaults:
+    group/k8s:
+      kubeconfig: "{{ kubeconfig }}"
+  block:
+
+  - name: Undeploy
+    include_tasks: undeploy.yaml

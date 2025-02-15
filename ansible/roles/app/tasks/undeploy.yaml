@@ -1,0 +1,13 @@
+---
+
+- name: Remove Event Stream
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', '{{ item }}.yaml.j2') }}"
+    wait: yes
+    state: absent
+  loop:
+  - ingress
+  - service-ws
+  - service-internal
+  - deployment
+  - pvc
