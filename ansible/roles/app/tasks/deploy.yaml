@@ -52,4 +52,9 @@
   - deployment
   - service-internal
   - service-ws
-  - ingress
+
+- name: Deploy ingress ({{ ess_namespace }})
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'ingress.yaml.j2') }}"
+    wait: yes
+  when: ess_ingress_state == 'present'
