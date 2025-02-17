@@ -7,6 +7,7 @@
 # and add any additional variables and values to suit your installation in this file.
 
 ess_namespace: SetMe
+ess_image_tag: SetMe
 ess_service_account: SetMe
 ess_ws_hostname: SetMe
 ess_ampq_url: SetMe

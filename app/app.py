@@ -75,6 +75,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
     using a POST to /event-stream/."""
 
     # Get the DB record for this UUID...
+    _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
     res = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid}'")
@@ -91,19 +92,25 @@ async def event_stream(websocket: WebSocket, uuid: str):
     es_id = es[0]
     routing_key: str = es[2]
 
-    await websocket.accept()
-    _LOGGER.info(
-        "Accepted connection for %s (uuid=%s routing_key=%s)", es_id, uuid, routing_key
+    _LOGGER.debug(
+        "Waiting for accept on stream %s (uuid=%s routing_key=%s)...",
+        es_id,
+        uuid,
+        routing_key,
     )
+    await websocket.accept()
+    _LOGGER.debug("Accepted connection for %s", es_id)
 
-    _LOGGER.info("Creating reader for %s...", es_id)
+    _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
 
-    _LOGGER.info("Reading from %s...", es_id)
+    _LOGGER.debug("Reading %s...", es_id)
     while True:
         reader = anext(message_reader)
         message_body = await reader
-        _LOGGER.info("Got %s for %s (routing_key=%s)", message_body, es_id, routing_key)
+        _LOGGER.debug(
+            "Got %s for %s (routing_key=%s)", message_body, es_id, routing_key
+        )
         await websocket.send_text(str(message_body))
 
 

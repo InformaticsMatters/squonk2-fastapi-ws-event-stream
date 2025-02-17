@@ -92,6 +92,9 @@ Once deployed the application's internal API will be behind the service
 `ess-internal-api` on port `8001`. The Account Server will be able to
 manage event streams via the URL `http://ess-internal-api:8001/event-stream/`.
 
+To update the running image (to deploy a new tagged version) just re-run the
+playbook with the a suitable value for `ess_image_tag`.
+
 To remove the application run the playbook again, but set the `ess_state` variable
 to `absent`: -
 

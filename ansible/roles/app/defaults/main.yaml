@@ -17,6 +17,8 @@ ess_ws_hostname: SetMe
 # This must include a username and password and typically an exchange.
 # For example 'amqp://username:password@rabbitmq:5672/es'
 ess_ampq_url: SetMe
+# What image tag do you want to deploy?
+ess_image_tag: SetMe
 
 # Required with defaults ---------------------------------------------------------------
 
@@ -28,7 +30,6 @@ ess_ingress_state: present
 
 # Our image details
 ess_image_owner: informaticsmatters
-ess_image_tag: 1.0.0-beta.3
 
 # Pull Policy? Always or IfNotPresent
 ess_pull_policy_always: IfNotPresent
