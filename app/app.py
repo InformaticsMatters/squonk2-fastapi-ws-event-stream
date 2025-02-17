@@ -33,13 +33,10 @@ app_internal = FastAPI()
 _INGRESS_LOCATION: str = os.getenv("ESS_INGRESS_LOCATION", "localhost:8080")
 assert _INGRESS_LOCATION, "ESS_INGRESS_LOCATION environment variable must be set"
 _INGRESS_SECURE: bool = os.getenv("ESS_INGRESS_SECURE", "no").lower() == "yes"
-_LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
-_LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
 
 _AMPQ_EXCHANGE: str = "event-streams"
 _AMPQ_URL: str = os.getenv("ESS_AMPQ_URL", "")
 assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
-_LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -59,6 +56,10 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.commit()
     _DB_CONNECTION.close()
     _LOGGER.info("Created.")
+
+    _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
+    _LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
+    _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
 
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.
