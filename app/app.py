@@ -32,7 +32,7 @@ app_internal = FastAPI()
 # Configuration...
 _INGRESS_LOCATION: str = os.getenv("ESS_INGRESS_LOCATION", "localhost:8080")
 assert _INGRESS_LOCATION, "ESS_INGRESS_LOCATION environment variable must be set"
-_INGRESS_SECURE: bool = os.getenv("WS_INGRESS_SECURE", "no").lower() == "yes"
+_INGRESS_SECURE: bool = os.getenv("ESS_INGRESS_SECURE", "no").lower() == "yes"
 _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
 _LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
 
