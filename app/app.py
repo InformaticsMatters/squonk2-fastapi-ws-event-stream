@@ -73,13 +73,14 @@ class EventStreamPostRequestBody(BaseModel):
 # Endpoints for the 'public-facing' event-stream web-socket API ------------------------
 
 
-@app_public.websocket("/event-stream/{uuid}")
-async def event_stream(websocket: WebSocket, uuid: str):
+@app_public.websocket("/")
+async def event_stream(websocket: WebSocket):
     """The websocket handler for the event-stream.
     The actual location is returned to the AS when the web-socket is created
     using a POST to /event-stream/."""
 
     # Get the DB record for this UUID...
+    uuid: str = "P7kna4dF5irHFYJGpNigGu"
     _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
