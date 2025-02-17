@@ -41,20 +41,24 @@ _AMPQ_URL: str = os.getenv("ESS_AMPQ_URL", "")
 assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
 _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
 
-# Create our local database.
-# A table to record allocated Event Streams.
-# The table 'id' is an INTEGER PRIMARY KEY and so becomes an auto-incrementing
-# value when NONE is passed in as it's value.
+# SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
-_LOGGER.info("Creating SQLite database (%s)...", _DATABASE_PATH)
-_DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
-_CUR = _DB_CONNECTION.cursor()
-_CUR.execute(
-    "CREATE TABLE IF NOT EXISTS es (id INTEGER PRIMARY KEY, uuid TEXT, routing_key TEXT)"
-)
-_DB_CONNECTION.commit()
-_DB_CONNECTION.close()
-_LOGGER.info("Created.")
+
+# Logic specific to the 'internal API' process
+if os.getenv("IMAGE_ROLE", "").lower() == "internal":
+    # Create the database.
+    # A table to record allocated Event Streams.
+    # The table 'id' is an INTEGER PRIMARY KEY and so becomes an auto-incrementing
+    # value when NONE is passed in as it's value.
+    _LOGGER.info("Creating SQLite database (%s)...", _DATABASE_PATH)
+    _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
+    _CUR = _DB_CONNECTION.cursor()
+    _CUR.execute(
+        "CREATE TABLE IF NOT EXISTS es (id INTEGER PRIMARY KEY, uuid TEXT, routing_key TEXT)"
+    )
+    _DB_CONNECTION.commit()
+    _DB_CONNECTION.close()
+    _LOGGER.info("Created.")
 
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.

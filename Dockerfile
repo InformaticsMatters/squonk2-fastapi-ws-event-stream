@@ -51,6 +51,8 @@ ENV PATH=/.venv/bin:$PATH
 COPY app/ ./app/
 COPY logging.config .
 COPY docker-entrypoint.sh .
+COPY internal.env ./
+COPY public.env ./
 
 # Probes...
 COPY probes/*.sh .
