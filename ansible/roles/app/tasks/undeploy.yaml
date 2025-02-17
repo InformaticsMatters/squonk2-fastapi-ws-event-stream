@@ -7,7 +7,7 @@
     state: absent
   loop:
   - ingress
-  - service-ws
+  - service-public
   - service-internal
   - deployment
   - pvc

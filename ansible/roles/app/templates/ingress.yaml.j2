@@ -20,10 +20,10 @@ spec:
   - host: {{ ess_ws_hostname }}
     http:
       paths:
-      - path: /
+      - path: /event-stream
         pathType: Prefix
         backend:
           service:
-            name: ess-ws
+            name: ess-public
             port:
               name: ws

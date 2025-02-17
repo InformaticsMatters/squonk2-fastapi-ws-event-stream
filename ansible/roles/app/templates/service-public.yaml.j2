@@ -2,14 +2,14 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: ess-ws
+  name: ess-public
   namespace: {{ ess_namespace }}
   labels:
-    name: ess-ws
+    name: ess-public
 spec:
   selector:
     name: ess
   ports:
   - name: ws
-    port: 80
+    port: 8080
     targetPort: ws

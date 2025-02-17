@@ -53,7 +53,7 @@
   loop:
   - deployment
   - service-internal
-  - service-ws
+  - service-public
 
 - name: Deploy ingress ({{ ess_namespace }})
   kubernetes.core.k8s:
