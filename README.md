@@ -85,15 +85,21 @@ accidental commits as it's in the project's `.gitignore` file: -
 Then, when you have set your variables, identify your **KUBECONFIG** file,
 and run the playbook: -
 
-    export KUBECONFIG=<path-to-your-kubeconfig>
+    export KUBECONFIG=~/k8s-config/nw-xch-dev.yaml
     ansible-playbook site.yaml -e @parameters.yaml
 
 Once deployed the application's internal API will be behind the service
-`ess-internal-api` on port `8001`. The Account Server will be able to
-manage event streams via the URL `http://ess-internal-api:8001/event-stream/`.
+`ess-internal-api` on port `8081`, and available to any application running in the
+cluster. The Account Server will be able to manage event streams via the URL
+`http://ess-internal-api:8081/event-stream/`.
+
+The external web-socket service will be available on the ingress host you've specified,
+as either a `ws://` or `wss://` service, depending on the ingress configuration. If
+the host is `example.com` you should be able to connect to unsecure web sockets using
+the URL `ws://example.com/event-stream/{uuid}`.
 
 To update the running image (to deploy a new tagged version) just re-run the
-playbook with the a suitable value for `ess_image_tag`.
+playbook with a suitable value for `ess_image_tag`.
 
 To remove the application run the playbook again, but set the `ess_state` variable
 to `absent`: -

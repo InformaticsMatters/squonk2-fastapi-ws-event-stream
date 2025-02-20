@@ -7,10 +7,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       name: ess
@@ -81,22 +78,24 @@ spec:
         # a roll-out will not occur if the tag has not changed.
         - name: CICD_TRIGGER_ID
           value: '{{ ansible_date_time.iso8601_micro }}'
+        startupProbe:
+          httpGet:
+            path: /event-stream
+            port: internal
+          failureThreshold: 60
+          periodSeconds: 5
         readinessProbe:
-          tcpSocket:
-            port: 8081
-          initialDelaySeconds: 10
-          timeoutSeconds: 3
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 10
+          httpGet:
+            path: /event-stream
+            port: internal
+          initialDelaySeconds: 5
+          periodSeconds: 5
         livenessProbe:
-          tcpSocket:
-            port: 8081
-          initialDelaySeconds: 20
-          timeoutSeconds: 3
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 3
+          httpGet:
+            path: /event-stream
+            port: internal
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources:
           requests:
             cpu: {{ ess_api_cpu_request }}

@@ -38,7 +38,7 @@ ess_pull_policy_always: IfNotPresent
 ess_shared_volume_volume_storageclass: ' '
 
 # Pod resource requests and limits
-ess_api_cpu_request: 500m
-ess_api_cpu_limit: 1
-ess_api_mem_request: 1G
-ess_api_mem_limit: 1Gi
+ess_api_cpu_request: 100m
+ess_api_cpu_limit:
+ess_api_mem_request: 256Mi
+ess_api_mem_limit: 256Mi

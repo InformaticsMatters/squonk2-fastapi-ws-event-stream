@@ -8,6 +8,10 @@ import sys
 
 from simple_websocket import AioClient, ConnectionClosed
 
+if len(sys.argv) != 2:
+    print("Usage: simple_es_subscriber.py <location>")
+    sys.exit(1)
+
 _LOCATION: str = sys.argv[1]
 
 

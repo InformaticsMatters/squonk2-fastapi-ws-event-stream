@@ -2,9 +2,12 @@
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: ess
+  name: ess-ws
   namespace: {{ ess_namespace }}
   annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
 {% if ess_cert_issuer %}
     cert-manager.io/cluster-issuer: "{{ ess_cert_manager_issuer_base|lower }}-{{ ess_cert_issuer|lower }}"
 {% endif %}
@@ -24,6 +27,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: ess-public
+            name: ess-ws
             port:
               name: ws

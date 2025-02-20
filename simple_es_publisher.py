@@ -16,6 +16,10 @@ from informaticsmatters.protobuf.accountserver.merchant_charge_message_pb2 impor
     OperationEnum,
 )
 
+if len(sys.argv) != 2:
+    print("Usage: simple_es_publisher.py <routing-key>")
+    sys.exit(1)
+
 _ROUTING_KEY: str = sys.argv[1]
 
 _AMPQ_EXCHANGE: str = "event-streams"
