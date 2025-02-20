@@ -11,7 +11,6 @@
     - ess_service_account != 'SetMe'
     - ess_ws_hostname | length > 0
     - ess_ws_hostname != 'SetMe'
-    - ess_ws_port | string | length > 0
     - ess_ampq_url | length > 0
     - ess_ampq_url != 'SetMe'
 

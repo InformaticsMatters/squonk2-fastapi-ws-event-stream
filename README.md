@@ -95,7 +95,7 @@ cluster. The Account Server will be able to manage event streams via the URL
 
 The external web-socket service will be available on the ingress host you've specified,
 as either a `ws://` or `wss://` service, depending on the ingress configuration. If
-the host is `example.com` you should be able to connect to unsecure web sockets using
+the host is `example.com` you should be able to connect to an unsecure web socket using
 the URL `ws://example.com/event-stream/{uuid}`.
 
 To update the running image (to deploy a new tagged version) just re-run the

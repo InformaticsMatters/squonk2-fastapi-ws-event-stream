@@ -22,8 +22,6 @@ ess_image_tag: SetMe
 
 # Required with defaults ---------------------------------------------------------------
 
-# The external port number streams are exposed on
-ess_ws_port: 80
 # Deploy the ingress definition?
 # One of 'present' or 'absent'.
 ess_ingress_state: present
