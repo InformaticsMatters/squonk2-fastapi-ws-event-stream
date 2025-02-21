@@ -8,6 +8,6 @@
   loop:
   - ingress
   - service-ws
-  - service-internal
+  - service-api
   - deployment
   - pvc

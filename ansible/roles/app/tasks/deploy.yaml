@@ -51,7 +51,7 @@
     wait: yes
   loop:
   - deployment
-  - service-internal
+  - service-api
   - service-ws
 
 - name: Deploy ingress ({{ ess_namespace }})

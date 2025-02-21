@@ -89,9 +89,9 @@ and run the playbook: -
     ansible-playbook site.yaml -e @parameters.yaml
 
 Once deployed the application's internal API will be behind the service
-`ess-internal-api` on port `8081`, and available to any application running in the
+`ess-api` on port `8081`, and available to any application running in the
 cluster. The Account Server will be able to manage event streams via the URL
-`http://ess-internal-api:8081/event-stream/`.
+`http://ess-api:8081/event-stream/`.
 
 The external web-socket service will be available on the ingress host you've specified,
 as either a `ws://` or `wss://` service, depending on the ingress configuration. If
