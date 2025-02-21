@@ -3,7 +3,7 @@
 Takes a 'routing key' and sends a message to the 'expected' AS exchange
 on a localhost RabbitMQ server.
 
-Usage: simple_es_publisher.py <routing_key>
+Usage: ampq_publisher.py <routing_key>
 """
 import asyncio
 import sys
@@ -17,7 +17,7 @@ from informaticsmatters.protobuf.accountserver.merchant_charge_message_pb2 impor
 )
 
 if len(sys.argv) != 2:
-    print("Usage: simple_es_publisher.py <routing-key>")
+    print("Usage: ampq_publisher.py <routing-key>")
     sys.exit(1)
 
 _ROUTING_KEY: str = sys.argv[1]

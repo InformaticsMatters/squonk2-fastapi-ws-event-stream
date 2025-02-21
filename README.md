@@ -132,8 +132,8 @@ To list (**GET**) all the existing event streams, run the following:
     http localhost:8081/event-stream/ -b
 
 The docker-compose file will start the web socket service on port 8080 and
-the internal API on port 8081. ThIt will also run a RabbitMQ server, which can be found
-on port 5672.
+the internal API on port `8081`. It will also run a RabbitMQ server, which can be found
+on port `5672`.
 
 As well as creating and deleting sockets via the internal API some very simple Python
 modules have also been provided to inject messages onto the RabbitMQ bus and to
@@ -142,12 +142,12 @@ read messages from the corresponding web socket: -
 If you have a websocket you can start a simple listener with the following command,
 which will print each message received: -
 
-    ./simple_es_subscriber.py <location>
+    ./ws_listener.py <location>
 
-You can then 'inject' a very simple **MerchantCharge** message that will be picked up
+You can then *inject* a very simple **MerchantCharge** message that will be picked up
 by the client using the command: -
 
-    ./simple_es_publisher.py <routing_key>
+    ./ampq_publisher.py <routing_key>
 
 ---
 
