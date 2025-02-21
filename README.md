@@ -113,7 +113,8 @@ to `absent`: -
 The deployed application uses the Python logging framework. Significant events
 are written to the console, and in a rotating file in `/log/es.log`.
 
-A
+Access logging is written to a rotating file handler for `/log/access.log`,
+and WSGI logging to `/log/wsgi.log`.
 
 ## Local development
 You can build and run the service using `docker compose`: -
