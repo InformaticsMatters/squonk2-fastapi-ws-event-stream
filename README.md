@@ -30,6 +30,9 @@ the required endpoint: -
 See the AS documentation for more details, and the discussion of the [Event Streams]
 service on its internal wiki.
 
+The application runs two **uvicorn** FastAPI processes in the container: -
+an API listening on port `8081`, and the web-socket service listening on port `8080`.
+
 ## Contributing
 The project uses: -
 
@@ -105,6 +108,12 @@ To remove the application run the playbook again, but set the `ess_state` variab
 to `absent`: -
 
     ansible-playbook site.yaml -e @parameters.yaml -e ess_state=absent
+
+## Troubleshooting
+The deployed application uses the Python logging framework. Significant events
+are written to the console, and in a rotating file in `/log/es.log`.
+
+A
 
 ## Local development
 You can build and run the service using `docker compose`: -
