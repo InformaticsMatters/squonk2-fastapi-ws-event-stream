@@ -42,7 +42,7 @@ jobs:
       run: echo "owner=${OWNER,,}" >> "$GITHUB_ENV"
       env:
         OWNER: '${{ github.repository_owner }}'
-    - name: Build and Push
+    - name: Build and Push (Tag)
       uses: docker/build-push-action@v6
       with:
         context: .
