@@ -111,13 +111,18 @@ async def event_stream(websocket: WebSocket, uuid: str):
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
 
-    _LOGGER.debug("Reading %s (message_reader=%s)...", es_id, message_reader)
-    while True:
+    _LOGGER.debug(
+        "Reading messages for %s (message_reader=%s)...", es_id, message_reader
+    )
+    _running: bool = True
+    while _running:
         _LOGGER.debug("Calling anext() for %s...", es_id)
         reader = anext(message_reader)
         message_body = await reader
         _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
         await websocket.send_text(str(message_body))
+
+    _LOGGER.debug("Leaving %s (uid=%s)...", es_id, uuid)
 
 
 async def _get_from_queue(routing_key: str):
