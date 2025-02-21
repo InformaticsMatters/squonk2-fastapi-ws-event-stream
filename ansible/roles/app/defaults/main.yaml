@@ -29,8 +29,9 @@ ess_ingress_state: present
 # Our image details
 ess_image_owner: informaticsmatters
 
-# Pull Policy? Always or IfNotPresent
-ess_pull_policy_always: IfNotPresent
+# Always pull the image, regardless of tag?
+# Set to anything to apply.
+ess_pull_policy_always:
 
 # Storage class for the DB (' ' implies default)
 ess_shared_volume_volume_storageclass: ' '

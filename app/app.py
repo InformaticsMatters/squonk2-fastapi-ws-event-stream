@@ -87,9 +87,11 @@ async def event_stream(websocket: WebSocket, uuid: str):
     es = res.fetchone()
     db.close()
     if not es:
+        msg: str = f"Connect for unknown EventStream {uuid}"
+        _LOGGER.warning(msg)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"EventStream {uuid} is not known",
+            detail=msg,
         )
 
     # Get the ID (for diagnostics)
@@ -98,7 +100,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
     routing_key: str = es[2]
 
     _LOGGER.debug(
-        "Waiting for accept on stream %s (uuid=%s routing_key=%s)...",
+        "Waiting for 'accept' on stream %s (uuid=%s routing_key=%s)...",
         es_id,
         uuid,
         routing_key,
@@ -109,13 +111,12 @@ async def event_stream(websocket: WebSocket, uuid: str):
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
 
-    _LOGGER.debug("Reading %s...", es_id)
+    _LOGGER.debug("Reading %s (message_reader=%s)...", es_id, message_reader)
     while True:
+        _LOGGER.debug("Calling anext() for %s...", es_id)
         reader = anext(message_reader)
         message_body = await reader
-        _LOGGER.debug(
-            "Got %s for %s (routing_key=%s)", message_body, es_id, routing_key
-        )
+        _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
         await websocket.send_text(str(message_body))
 
 
