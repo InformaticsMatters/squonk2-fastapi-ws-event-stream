@@ -1,29 +1,27 @@
 """The entrypoint for the Squonk2 FastAPI WebSocket service."""
 
-# import json
+import json
 import logging
 import os
 import sqlite3
+from logging.config import dictConfig
+from typing import Any, Dict
 
 import aio_pika
 import shortuuid
 from fastapi import FastAPI, HTTPException, WebSocket, status
 from pydantic import BaseModel
 
-# from logging.config import dictConfig
-# from typing import Any, Dict
-
-
 # Configure logging
-# print("Configuring logging...")
-# _LOGGING_CONFIG: Dict[str, Any] = {}
-# with open("logging.config", "r", encoding="utf8") as stream:
-#    try:
-#        _LOGGING_CONFIG = json.loads(stream.read())
-#    except json.decoder.JSONDecodeError as exc:
-#        print(exc)
-# dictConfig(_LOGGING_CONFIG)
-# print("Configured logging.")
+print("Configuring logging...")
+_LOGGING_CONFIG: Dict[str, Any] = {}
+with open("logging.config", "r", encoding="utf8") as stream:
+    try:
+        _LOGGING_CONFIG = json.loads(stream.read())
+    except json.decoder.JSONDecodeError as exc:
+        print(exc)
+dictConfig(_LOGGING_CONFIG)
+print("Configured logging.")
 
 _LOGGER = logging.getLogger(__name__)
 
