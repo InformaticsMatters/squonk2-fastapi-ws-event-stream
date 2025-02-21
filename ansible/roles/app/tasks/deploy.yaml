@@ -41,9 +41,12 @@
 
 # Ok - looks like everything's set up. Let's deploy the ESS
 
-- name: Deploy PVC ({{ ess_namespace }})
+- name: Deploy PVCs ({{ ess_namespace }})
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'pvc.yaml.j2') }}"
+    definition: "{{ lookup('template', '{{ item }}.yaml.j2') }}"
+  loop:
+  - pvc-database
+  - pvc-log
 
 - name: Deploy objects ({{ ess_namespace }})
   kubernetes.core.k8s:

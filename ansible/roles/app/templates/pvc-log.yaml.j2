@@ -1,0 +1,16 @@
+---
+# A volume for the ESS SQLite database.
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: ess-log
+  namespace: {{ ess_namespace }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+{% if ess_log_volume_volume_storageclass != ' ' %}
+  storageClassName: {{ ess_log_volume_volume_storageclass }}
+{% endif %}
+  resources:
+    requests:
+      storage: 100Mi

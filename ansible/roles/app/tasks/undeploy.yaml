@@ -10,4 +10,5 @@
   - service-ws
   - service-api
   - deployment
-  - pvc
+  - pvc-database
+  - pvc-log

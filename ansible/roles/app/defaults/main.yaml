@@ -33,8 +33,9 @@ ess_image_owner: informaticsmatters
 # Set to anything to apply.
 ess_pull_policy_always:
 
-# Storage class for the DB (' ' implies default)
+# Storage class for the DB and logging (' ' implies default)
 ess_shared_volume_volume_storageclass: ' '
+ess_log_volume_volume_storageclass: ' '
 
 # Pod resource requests and limits
 ess_api_cpu_request: 100m
