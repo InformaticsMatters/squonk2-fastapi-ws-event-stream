@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 """A simple RabbitMQ message publisher for local testing.
 Takes a 'routing key' and sends a message to the 'expected' AS exchange
-on a localhost RabbitMQ server.
+on a localhost RabbitMQ server. The AMPQ URL is specified below and is expected
+to match the ESS_AMPQ_URL value used in the project's docker-compose file.
+It can be changed by providing a second argument on the command line.
 
-Usage: ampq_publisher.py <routing_key>
+Usage: ampq_publisher.py <routing_key> [<ampq_url>]
 """
 import asyncio
 import sys
@@ -16,14 +18,19 @@ from informaticsmatters.protobuf.accountserver.merchant_charge_message_pb2 impor
     OperationEnum,
 )
 
-if len(sys.argv) != 2:
-    print("Usage: ampq_publisher.py <routing-key>")
+# Deal with command line arguments
+if len(sys.argv) not in (2, 3):
+    print("Usage: ampq_publisher.py <routing-key> [<ampq_url>]")
     sys.exit(1)
 
 _ROUTING_KEY: str = sys.argv[1]
+if len(sys.argv) == 3:
+    _AMPQ_URL: str = sys.argv[2]
+else:
+    _AMPQ_URL: str = "amqp://es:cheddar1963@localhost:5672"
 
+# The AMPQ exchange the AS published to.
 _AMPQ_EXCHANGE: str = "event-streams"
-_AMPQ_URL: str = "amqp://es:cheddar1963@localhost:5672"
 
 # A demonstration message
 _MESSAGE_CLASS: str = "accountserver.MerchantCharge"
