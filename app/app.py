@@ -161,7 +161,9 @@ async def _get_from_queue(routing_key: str):
         es_exchange: aio_pika.AbstractExchange = await channel.declare_exchange(
             _AMPQ_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
         )
-        queue = await channel.declare_queue(durable=True, exclusive=True)
+        queue = await channel.declare_queue(
+            auto_delete=True, durable=True, exclusive=True
+        )
         await queue.bind(es_exchange, routing_key)
 
         async with queue.iterator() as queue_iter:
