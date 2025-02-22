@@ -41,6 +41,14 @@ assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
 
+
+def _get_location(uuid: str) -> str:
+    """Returns the location (URL) for the event stream with the given UUID."""
+    location: str = "wss://" if _INGRESS_SECURE else "ws://"
+    location += f"{_INGRESS_LOCATION}/event-stream/{uuid}"
+    return location
+
+
 # Logic specific to the 'internal API' process
 if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     # Display configuration
@@ -72,9 +80,9 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.close()
     for _ES in _EVENT_STREAMS:
         _LOGGER.info(
-            "Existing EventStream: id=%s, uuid=%s, routing_key=%s",
+            "Existing EventStream: %s (id=%s routing_key=%s)",
+            _get_location(_ES[1]),
             _ES[0],
-            _ES[1],
             _ES[2],
         )
 
@@ -254,10 +262,3 @@ def delete_es(es_id: int):
     _LOGGER.info("Deleted %s", es_id)
 
     return {}
-
-
-def _get_location(uuid: str) -> str:
-    """Returns the location (URL) for the event stream with the given UUID."""
-    location: str = "wss://" if _INGRESS_SECURE else "ws://"
-    location += f"{_INGRESS_LOCATION}/event-stream/{uuid}"
-    return location
