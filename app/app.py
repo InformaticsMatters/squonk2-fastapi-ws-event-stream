@@ -43,11 +43,18 @@ _DATABASE_PATH = "/data/event-streams.db"
 
 # Logic specific to the 'internal API' process
 if os.getenv("IMAGE_ROLE", "").lower() == "internal":
+    # Display configuration
+    _LOGGER.info("AMPQ_EXCHANGE: %s", _AMPQ_EXCHANGE)
+    _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
+    _LOGGER.info("DATABASE_PATH: %s", _DATABASE_PATH)
+    _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
+    _LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
+
     # Create the database.
     # A table to record allocated Event Streams.
     # The table 'id' is an INTEGER PRIMARY KEY and so becomes an auto-incrementing
     # value when NONE is passed in as it's value.
-    _LOGGER.info("Creating SQLite database (%s)...", _DATABASE_PATH)
+    _LOGGER.info("Creating SQLite database (if not present)...")
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
     _CUR.execute(
@@ -55,11 +62,21 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     )
     _DB_CONNECTION.commit()
     _DB_CONNECTION.close()
-    _LOGGER.info("Created.")
+    _LOGGER.info("Created")
 
-    _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
-    _LOGGER.info("INGRESS_SECURE: %s", _INGRESS_SECURE)
-    _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
+    # List existing event streams
+    _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
+    _CUR = _DB_CONNECTION.cursor()
+    _RES = _CUR.execute("SELECT * FROM es")
+    _EVENT_STREAMS = _RES.fetchall()
+    _DB_CONNECTION.close()
+    for _ES in _EVENT_STREAMS:
+        _LOGGER.info(
+            "Existing EventStream: id=%s, uuid=%s, routing_key=%s",
+            _ES[0],
+            _ES[1],
+            _ES[2],
+        )
 
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.
