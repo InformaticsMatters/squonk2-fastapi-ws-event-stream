@@ -158,12 +158,11 @@ async def _get_from_queue(routing_key: str):
 
     async with connection:
         channel = await connection.channel()
-        es_exchange = await channel.declare_exchange(
-            _AMPQ_EXCHANGE,
-            aio_pika.ExchangeType.DIRECT,
+        es_exchange: aio_pika.AbstractExchange = await channel.declare_exchange(
+            _AMPQ_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
         )
-        queue = await channel.declare_queue(exclusive=True)
-        await queue.bind(es_exchange, routing_key=routing_key)
+        queue = await channel.declare_queue(durable=True, exclusive=True)
+        await queue.bind(es_exchange, routing_key)
 
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
