@@ -45,7 +45,7 @@ _DATABASE_PATH = "/data/event-streams.db"
 def _get_location(uuid: str) -> str:
     """Returns the location (URL) for the event stream with the given UUID."""
     location: str = "wss://" if _INGRESS_SECURE else "ws://"
-    location += f"{_INGRESS_LOCATION}/event-stream/{uuid}/"
+    location += f"{_INGRESS_LOCATION}/event-stream/{uuid}"
     return location
 
 
