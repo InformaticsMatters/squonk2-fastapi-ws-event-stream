@@ -159,6 +159,10 @@ by the client using the command: -
 
     ./ampq_publisher.py <routing_key>
 
+>   By default the publisher uses a built-in AMPQ URL that is assumed to match
+    the one used by RabbitMQ in the docker-compose file. If you need to change this
+    you can provide a different AMPQ URL as a 2nd argument on the command line.
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable
