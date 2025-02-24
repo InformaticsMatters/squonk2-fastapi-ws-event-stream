@@ -5,11 +5,11 @@ import logging
 import os
 import sqlite3
 from logging.config import dictConfig
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import aio_pika
 import shortuuid
-from fastapi import FastAPI, HTTPException, Response, WebSocket, status
+from fastapi import FastAPI, HTTPException, WebSocket, status
 from pydantic import BaseModel
 
 # Configure logging
@@ -95,6 +95,27 @@ class EventStreamPostRequestBody(BaseModel):
     routing_key: str
 
 
+class EventStreamPostResponse(BaseModel):
+    """/event-stream/ POST response."""
+
+    id: int
+    location: str
+
+
+class EventStreamItem(BaseModel):
+    """An individual event stream (returned in the GET response)."""
+
+    id: int
+    location: str
+    routing_key: str
+
+
+class EventStreamGetResponse(BaseModel):
+    """/event-stream/ POST response."""
+
+    event_streams: List[EventStreamItem]
+
+
 # Endpoints for the 'public-facing' event-stream web-socket API ------------------------
 
 
@@ -175,8 +196,8 @@ async def _get_from_queue(routing_key: str):
 # Endpoints for the 'internal' event-stream management API -----------------------------
 
 
-@app_internal.post("/event-stream/")
-def post_es(request_body: EventStreamPostRequestBody, response: Response):
+@app_internal.post("/event-stream/", status_code=status.HTTP_201_CREATED)
+def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse:
     """Create a new event-stream returning the endpoint location.
 
     The AS provides a routing key to this endpoint and expects a event stream location
@@ -189,8 +210,6 @@ def post_es(request_body: EventStreamPostRequestBody, response: Response):
     """
     # Generate am new (difficult to guess) UUID for the event stream...
     uuid_str: str = shortuuid.uuid()
-    # And construct the location we'll be listening on...
-    location: str = _get_location(uuid_str)
 
     # Create a new ES record.
     # An ID is assigned automatically -
@@ -211,15 +230,12 @@ def post_es(request_body: EventStreamPostRequestBody, response: Response):
 
     _LOGGER.info("Created %s", es)
 
-    response.status_code = status.HTTP_201_CREATED
-    return {
-        "id": es[0],
-        "location": location,
-    }
+    # And construct the location we'll be listening on...
+    return EventStreamPostResponse(id=es[0], location=_get_location(uuid_str))
 
 
-@app_internal.get("/event-stream/")
-def get_es():
+@app_internal.get("/event-stream/", status_code=status.HTTP_200_OK)
+def get_es() -> EventStreamGetResponse:
     """Returns a list of the details of all existing event-streams,
     their IDs, locations, and routing keys."""
 
@@ -229,16 +245,18 @@ def get_es():
     all_es = cursor.execute("SELECT * FROM es").fetchall()
     db.close()
 
-    event_streams = []
+    event_streams: List[EventStreamItem] = []
     for es in all_es:
         location: str = _get_location(es[1])
-        event_streams.append({"id": es[0], "location": location, "routing_key": es[2]})
+        event_streams.append(
+            EventStreamItem(id=es[0], location=location, routing_key=es[2])
+        )
 
-    return {"event-streams": event_streams}
+    return EventStreamGetResponse(event_streams=event_streams)
 
 
-@app_internal.delete("/event-stream/{es_id}")
-def delete_es(es_id: int, response: Response):
+@app_internal.delete("/event-stream/{es_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_es(es_id: int):
     """Destroys an existing event-stream."""
 
     _LOGGER.info("Deleting event stream %s...", es_id)
@@ -262,6 +280,3 @@ def delete_es(es_id: int, response: Response):
     db.close()
 
     _LOGGER.info("Deleted %s", es_id)
-
-    response.status_code = status.HTTP_204_NO_CONTENT
-    return {}
