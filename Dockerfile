@@ -62,7 +62,7 @@ COPY hooks/*.sh .
 # Create a database directory
 WORKDIR /data
 # Create a base directory for file-based logging
-WORKDIR /log
+WORKDIR /logs
 
 # Switch to container user
 ENV HOME=${APP_ROOT}

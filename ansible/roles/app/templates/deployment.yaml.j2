@@ -63,8 +63,8 @@ spec:
         volumeMounts:
         - mountPath: /data
           name: database
-        - mountPath: /log
-          name: log
+        - mountPath: /logs
+          name: logs
         env:
         - name: ESS_AMPQ_URL
           value: '{{ ess_ampq_url }}'
@@ -118,6 +118,6 @@ spec:
       - name: database
         persistentVolumeClaim:
           claimName: ess-database
-      - name: log
+      - name: logs
         persistentVolumeClaim:
           claimName: ess-log

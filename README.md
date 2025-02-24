@@ -92,9 +92,9 @@ and run the playbook: -
     ansible-playbook site.yaml -e @parameters.yaml
 
 Once deployed the application's internal API will be behind the service
-`ess-api` on port `8081`, and available to any application running in the
+`ess-ws-api` on port `8081`, and available to any application running in the
 cluster. The Account Server will be able to manage event streams via the URL
-`http://ess-api:8081/event-stream/`.
+`http://ess-ws-api:8081/event-stream/`.
 
 The external web-socket service will be available on the ingress host you've specified,
 as either a `ws://` or `wss://` service, depending on the ingress configuration. If
@@ -111,10 +111,10 @@ to `absent`: -
 
 ## Troubleshooting
 The deployed application uses the Python logging framework. Significant events
-are written to the console, and in a rotating file in `/log/es.log`.
+are written to the console, and in a rotating file in `/loga/es.log`.
 
-Access logging is written to a rotating file handler for `/log/access.log`,
-and WSGI logging to `/log/wsgi.log`.
+Access logging is written to a rotating file handler for `/loga/access.log`,
+and WSGI logging to `/logs/wsgi.log`.
 
 ## Local development
 You can build and run the service using `docker compose`: -
