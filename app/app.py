@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import aio_pika
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, status
+from fastapi import FastAPI, HTTPException, Response, WebSocket, status
 from pydantic import BaseModel
 
 # Configure logging
@@ -176,7 +176,7 @@ async def _get_from_queue(routing_key: str):
 
 
 @app_internal.post("/event-stream/")
-def post_es(request_body: EventStreamPostRequestBody):
+def post_es(request_body: EventStreamPostRequestBody, response: Response):
     """Create a new event-stream returning the endpoint location.
 
     The AS provides a routing key to this endpoint and expects a event stream location
@@ -211,6 +211,7 @@ def post_es(request_body: EventStreamPostRequestBody):
 
     _LOGGER.info("Created %s", es)
 
+    response.status_code = status.HTTP_201_CREATED
     return {
         "id": es[0],
         "location": location,
@@ -237,7 +238,7 @@ def get_es():
 
 
 @app_internal.delete("/event-stream/{es_id}")
-def delete_es(es_id: int):
+def delete_es(es_id: int, response: Response):
     """Destroys an existing event-stream."""
 
     _LOGGER.info("Deleting event stream %s...", es_id)
@@ -262,4 +263,5 @@ def delete_es(es_id: int):
 
     _LOGGER.info("Deleted %s", es_id)
 
+    response.status_code = status.HTTP_204_NO_CONTENT
     return {}
