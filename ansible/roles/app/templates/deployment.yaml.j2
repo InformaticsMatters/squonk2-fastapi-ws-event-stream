@@ -83,21 +83,18 @@ spec:
         - name: CICD_TRIGGER_ID
           value: '{{ ansible_date_time.iso8601_micro }}'
         startupProbe:
-          httpGet:
-            path: /event-stream
-            port: internal
+          tcpSocket:
+            port: 8081
           failureThreshold: 60
           periodSeconds: 5
         readinessProbe:
-          httpGet:
-            path: /event-stream
-            port: internal
+          tcpSocket:
+            port: 8081
           initialDelaySeconds: 5
           periodSeconds: 5
         livenessProbe:
-          httpGet:
-            path: /event-stream
-            port: internal
+          tcpSocket:
+            port: 8081
           initialDelaySeconds: 5
           periodSeconds: 5
         resources:
