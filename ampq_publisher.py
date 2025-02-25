@@ -20,11 +20,11 @@ from informaticsmatters.protobuf.accountserver.merchant_charge_message_pb2 impor
 
 # Deal with command line arguments
 if len(sys.argv) not in (2, 3):
-    print("Usage: ampq_publisher.py <routing-key> [<ampq_url>]")
+    print("Usage: ampq_publisher.py <routing-key> [<ampq-url>]")
     sys.exit(1)
 
 _ROUTING_KEY: str = sys.argv[1]
-if len(sys.argv) == 3:
+if len(sys.argv) > 2:
     _AMPQ_URL: str = sys.argv[2]
 else:
     _AMPQ_URL: str = "amqp://es:cheddar1963@localhost:5672"
@@ -55,6 +55,7 @@ async def main() -> None:
         es_exchange = await channel.declare_exchange(
             _AMPQ_EXCHANGE,
             aio_pika.ExchangeType.DIRECT,
+            durable=True,
         )
         await es_exchange.publish(
             aio_pika.Message(body=f"{_MESSAGE_CLASS}|{_MESSAGE_STRING}".encode()),
