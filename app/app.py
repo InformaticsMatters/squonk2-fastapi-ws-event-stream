@@ -259,7 +259,7 @@ def get_es() -> EventStreamGetResponse:
 def delete_es(es_id: int):
     """Destroys an existing event-stream."""
 
-    _LOGGER.info("Deleting event stream %s...", es_id)
+    _LOGGER.info("Request to delete event stream %s...", es_id)
 
     # Get the ES record (by primary key)
     db = sqlite3.connect(_DATABASE_PATH)
@@ -271,6 +271,10 @@ def delete_es(es_id: int):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"EventStream {es_id} is not known",
         )
+
+    _LOGGER.info(
+        "Deleting event stream %s (uuid=%s routing_key=%s)", es_id, es[1], es[2]
+    )
 
     # Delete the ES record...
     db = sqlite3.connect(_DATABASE_PATH)
