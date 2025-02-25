@@ -239,6 +239,8 @@ def get_es() -> EventStreamGetResponse:
     """Returns a list of the details of all existing event-streams,
     their IDs, locations, and routing keys."""
 
+    _LOGGER.info("Request to get event streams...")
+
     # Get the ES record (by primary key)
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
@@ -251,6 +253,8 @@ def get_es() -> EventStreamGetResponse:
         event_streams.append(
             EventStreamItem(id=es[0], location=location, routing_key=es[2])
         )
+
+    _LOGGER.info("Returning %s event stream records", len(event_streams))
 
     return EventStreamGetResponse(event_streams=event_streams)
 
