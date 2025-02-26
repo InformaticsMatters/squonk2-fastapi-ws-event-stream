@@ -80,7 +80,7 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.close()
     for _ES in _EVENT_STREAMS:
         _LOGGER.info(
-            "Existing EventStream: %s (id=%s routing_key=%s)",
+            "Existing EventStream: %s (id=%s routing_key='%s')",
             _get_location(_ES[1]),
             _ES[0],
             _ES[2],
@@ -116,37 +116,20 @@ class EventStreamGetResponse(BaseModel):
     event_streams: list[EventStreamItem]
 
 
-# Active websocket connections, indexed by Event Stream record ID
-_ACTIVE_CONNECTIONS: dict[int, list[WebSocket]] = {}
-
-
-def _add_active_connection(es_id: int, websocket: WebSocket) -> int:
-    """Add an active connection to the list of active connections,
-    returning the current number of connections for this ID."""
-    if es_id not in _ACTIVE_CONNECTIONS:
-        _ACTIVE_CONNECTIONS[es_id] = []
-    _ACTIVE_CONNECTIONS[es_id].append(websocket)
-    return len(_ACTIVE_CONNECTIONS[es_id])
-
-
-def _get_active_connections(es_id: int) -> list[WebSocket]:
-    """Get the list of active connections for a given Event Stream record ID."""
-    return _ACTIVE_CONNECTIONS.get(es_id, [])
-
-
-def _forget_active_connections(es_id: int) -> None:
-    """Removes all active connections for a given Event Stream record ID."""
-    del _ACTIVE_CONNECTIONS[es_id]
-
-
 # Endpoints for the 'public-facing' event-stream web-socket API ------------------------
 
 
 @app_public.websocket("/event-stream/{uuid}")
 async def event_stream(websocket: WebSocket, uuid: str):
     """The websocket handler for the event-stream.
-    The actual location is returned to the AS when the web-socket is created
-    using a POST to /event-stream/."""
+    The UUID is returned to the AS when the web-socket is created
+    using a POST to /event-stream/.
+
+    The socket will close if a 'POISON' message is received.
+    The AS will insert one of these into the stream after it is has been closed.
+    i.e. the API will call us to close the connection (removing the record from our DB)
+    before sending the poison pill.
+    """
 
     # Get the DB record for this UUID...
     _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
@@ -169,14 +152,13 @@ async def event_stream(websocket: WebSocket, uuid: str):
     routing_key: str = es[2]
 
     _LOGGER.debug(
-        "Waiting for 'accept' on stream %s (uuid=%s routing_key=%s)...",
+        "Waiting for 'accept' on stream %s (uuid=%s routing_key='%s')...",
         es_id,
         uuid,
         routing_key,
     )
     await websocket.accept()
-    count_for_this_id = _add_active_connection(es_id, websocket)
-    _LOGGER.debug("Accepted connection for %s (active=%s)", es_id, count_for_this_id)
+    _LOGGER.debug("Accepted connection for %s", es_id)
 
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
@@ -190,7 +172,11 @@ async def event_stream(websocket: WebSocket, uuid: str):
         reader = anext(message_reader)
         message_body = await reader
         _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
-        await websocket.send_text(str(message_body))
+        if message_body == b"POISON":
+            _LOGGER.debug("Got poison pill for %s (%s) (closing)...", es_id, uuid)
+            _running = False
+        else:
+            await websocket.send_text(str(message_body))
 
     _LOGGER.debug("Leaving %s (uid=%s)...", es_id, uuid)
 
@@ -240,7 +226,7 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     # we just need to provide a UUID and the routing key.
     routing_key: str = request_body.routing_key
     _LOGGER.info(
-        "Creating new event stream %s (routing_key=%s)...", uuid_str, routing_key
+        "Creating new event stream %s (routing_key='%s')...", uuid_str, routing_key
     )
 
     db = sqlite3.connect(_DATABASE_PATH)
@@ -301,7 +287,7 @@ def delete_es(es_id: int):
         )
 
     _LOGGER.info(
-        "Deleting event stream %s (uuid=%s routing_key=%s)", es_id, es[1], es[2]
+        "Deleting event stream %s (uuid=%s routing_key='%s')", es_id, es[1], es[2]
     )
 
     # Delete the ES record...
@@ -311,18 +297,5 @@ def delete_es(es_id: int):
     cursor.execute(f"DELETE FROM es WHERE id={es_id}")
     db.commit()
     db.close()
-
-    # Now close (and erase) any existing connections...
-    # See https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4.1 for status codes
-    # The reason ius limited to 123 utf-8 bytes
-    active_websockets = _get_active_connections(es_id)
-    if active_websockets:
-        _LOGGER.info(
-            "Closing active connections for %s (%s)", es_id, len(active_websockets)
-        )
-        for websocket in _get_active_connections(es_id):
-            websocket.close(code=1000, reason="Event Stream deleted")
-        _LOGGER.info("Closed active connections for %s", es_id)
-        _forget_active_connections(es_id)
 
     _LOGGER.info("Deleted %s", es_id)
