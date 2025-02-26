@@ -20,18 +20,18 @@ Namespace of the AS to service internal requests from the API to create, delete
 and connect to the internal messaging bus to stream events to a client.
 
 The implementation is based on Python and the [FastAPI] framework, offering
-_public_ web-sockets managed by an _internal_ API, managed by the AS using
-the required endpoint: -
+_public_ WebSockets managed by an _internal_ API, managed by the AS using
+the required endpoints: -
 
-    /event-stream POST
-    /event-stream GET
+    /event-stream/ POST
+    /event-stream/ GET
     /event-stream/{id} DELETE
 
 See the AS documentation for more details, and the discussion of the [Event Streams]
 service on its internal wiki.
 
-The application runs two **uvicorn** FastAPI processes in the container: -
-an API listening on port `8081`, and the web-socket service listening on port `8080`.
+The application runs two **uvicorn** FastAPI processes in the container.
+An API listening on port `8081`, and the WebSocket service listening on port `8080`.
 
 ## Contributing
 The project uses: -
@@ -111,15 +111,19 @@ to `absent`: -
 
 ## Troubleshooting
 The deployed application uses the Python logging framework. Significant events
-are written to the console, and in a rotating file in `/loga/es.log`.
+are written to the console, and in a rotating file in `/logs/es.log`.
 
-Access logging is written to a rotating file handler for `/loga/access.log`,
+Access logging is written to the rotating file handler `/logs/access.log`,
 and WSGI logging to `/logs/wsgi.log`.
 
 ## Local development
 You can build and run the service using `docker compose`: -
 
     docker compose up --build --detach
+
+And shut it down with: -
+
+    docker compose down
 
 You can interact with it using `http`, where you should be able to create
 and delete event streams using the internal API. Here we're using
@@ -128,7 +132,7 @@ request: -
 
 To create (**POST**) an event stream, run the following:
 
-    ESS_LOC=$(http post localhost:8081/event-stream/ routing_key=0123456789 -b | jq -r ".location")
+    ESS_LOC=$(http post localhost:8081/event-stream/ routing_key=abc -b | jq -r ".location")
     echo $ESS_LOC
     ESS_ID=$(echo $ESS_LOC | cut -d/ -f5)
     echo $ESS_ID
@@ -152,7 +156,7 @@ read messages from the corresponding web socket: -
 If you have a websocket you can start a simple listener with the following command,
 which will print each message received: -
 
-    ./ws_listener.py <location>
+    ./ws_listener.py $ESS_LOC
 
 You can then *inject* a very simple **MerchantCharge** message that will be picked up
 by the client using the command: -
