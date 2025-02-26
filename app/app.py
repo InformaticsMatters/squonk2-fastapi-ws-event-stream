@@ -5,7 +5,7 @@ import logging
 import os
 import sqlite3
 from logging.config import dictConfig
-from typing import Any, Dict, List
+from typing import Any
 
 import aio_pika
 import shortuuid
@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 # Configure logging
 print("Configuring logging...")
-_LOGGING_CONFIG: Dict[str, Any] = {}
+_LOGGING_CONFIG: dict[str, Any] = {}
 with open("logging.config", "r", encoding="utf8") as stream:
     try:
         _LOGGING_CONFIG = json.loads(stream.read())
@@ -113,7 +113,30 @@ class EventStreamItem(BaseModel):
 class EventStreamGetResponse(BaseModel):
     """/event-stream/ POST response."""
 
-    event_streams: List[EventStreamItem]
+    event_streams: list[EventStreamItem]
+
+
+# Active websocket connections, indexed by Event Stream record ID
+_ACTIVE_CONNECTIONS: dict[int, list[WebSocket]] = {}
+
+
+def _add_active_connection(es_id: int, websocket: WebSocket) -> int:
+    """Add an active connection to the list of active connections,
+    returning the current number of connections for this ID."""
+    if es_id not in _ACTIVE_CONNECTIONS:
+        _ACTIVE_CONNECTIONS[es_id] = []
+    _ACTIVE_CONNECTIONS[es_id].append(websocket)
+    return len(_ACTIVE_CONNECTIONS[es_id])
+
+
+def _get_active_connections(es_id: int) -> list[WebSocket]:
+    """Get the list of active connections for a given Event Stream record ID."""
+    return _ACTIVE_CONNECTIONS.get(es_id, [])
+
+
+def _forget_active_connections(es_id: int) -> None:
+    """Removes all active connections for a given Event Stream record ID."""
+    del _ACTIVE_CONNECTIONS[es_id]
 
 
 # Endpoints for the 'public-facing' event-stream web-socket API ------------------------
@@ -152,7 +175,8 @@ async def event_stream(websocket: WebSocket, uuid: str):
         routing_key,
     )
     await websocket.accept()
-    _LOGGER.debug("Accepted connection for %s", es_id)
+    count_for_this_id = _add_active_connection(es_id, websocket)
+    _LOGGER.debug("Accepted connection for %s (active=%s)", es_id, count_for_this_id)
 
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
@@ -247,7 +271,7 @@ def get_es() -> EventStreamGetResponse:
     all_es = cursor.execute("SELECT * FROM es").fetchall()
     db.close()
 
-    event_streams: List[EventStreamItem] = []
+    event_streams: list[EventStreamItem] = []
     for es in all_es:
         location: str = _get_location(es[1])
         event_streams.append(
@@ -281,10 +305,24 @@ def delete_es(es_id: int):
     )
 
     # Delete the ES record...
+    # This will prevent any further connections.
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
     cursor.execute(f"DELETE FROM es WHERE id={es_id}")
     db.commit()
     db.close()
+
+    # Now close (and erase) any existing connections...
+    # See https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4.1 for status codes
+    # The reason ius limited to 123 utf-8 bytes
+    active_websockets = _get_active_connections(es_id)
+    if active_websockets:
+        _LOGGER.info(
+            "Closing active connections for %s (%s)", es_id, len(active_websockets)
+        )
+        for websocket in _get_active_connections(es_id):
+            websocket.close(code=1000, reason="Event Stream deleted")
+        _LOGGER.info("Closed active connections for %s", es_id)
+        _forget_active_connections(es_id)
 
     _LOGGER.info("Deleted %s", es_id)
