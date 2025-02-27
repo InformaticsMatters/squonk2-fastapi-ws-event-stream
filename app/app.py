@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 from logging.config import dictConfig
 from typing import Any
 
@@ -86,6 +87,14 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
             _ES[2],
         )
 
+# The active websocket connections (and a thread lock).
+# A set of WebSocket objects appended to when a connection is made
+# and where objects are removed when each the connection is closed.
+# This is used by the "shutdown" event to gracefully close all
+# active connections.
+_ACTIVE_CONNECTIONS: set[WebSocket] = set()
+_ACTIVE_CONNECTIONS_LOCK = threading.Lock()
+
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.
 # The public API is a WebSocket API and does not require a model.
@@ -114,6 +123,26 @@ class EventStreamGetResponse(BaseModel):
     """/event-stream/ POST response."""
 
     event_streams: list[EventStreamItem]
+
+
+def _add_connection(websocket: WebSocket):
+    """Safely add a connection to the active connections set."""
+    with _ACTIVE_CONNECTIONS_LOCK:
+        _ACTIVE_CONNECTIONS.add(websocket)
+
+
+def _remove_connection(websocket: WebSocket):
+    """Safely remove a connection from the active connections set."""
+    with _ACTIVE_CONNECTIONS_LOCK:
+        _ACTIVE_CONNECTIONS.remove(websocket)
+
+
+@app_public.on_event("shutdown")
+async def shutdown():
+    """The application is shutting down.
+    Gracefully close all active connections."""
+    for websocket in _ACTIVE_CONNECTIONS:
+        await websocket.close(code=status.WS_1001_GOING_AWAY, reason="Server shutdown")
 
 
 # Endpoints for the 'public-facing' event-stream web-socket API ------------------------
@@ -158,7 +187,13 @@ async def event_stream(websocket: WebSocket, uuid: str):
         routing_key,
     )
     await websocket.accept()
-    _LOGGER.info("Accepted connection for %s", es_id)
+    # Add us to the set of active connections
+    _add_connection(websocket)
+    _LOGGER.info(
+        "Accepted connection for %s (%s active connections)",
+        es_id,
+        len(_ACTIVE_CONNECTIONS),
+    )
 
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
@@ -177,6 +212,9 @@ async def event_stream(websocket: WebSocket, uuid: str):
             _running = False
         else:
             await websocket.send_text(str(message_body))
+
+    # Remove us from the set of active connections
+    _remove_connection(websocket)
 
     _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
     await websocket.close(
