@@ -173,13 +173,15 @@ async def event_stream(websocket: WebSocket, uuid: str):
         message_body = await reader
         _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
         if message_body == b"POISON":
-            _LOGGER.debug("Got poison pill for %s (%s) (closing)...", es_id, uuid)
+            _LOGGER.debug("Taking POISON for %s (%s) (closing)...", es_id, uuid)
             _running = False
         else:
             await websocket.send_text(str(message_body))
 
     _LOGGER.debug("Closing %s (uuid=%s)...", es_id, uuid)
-    await websocket.close()
+    await websocket.close(
+        code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+    )
     _LOGGER.debug("Closed %s", es_id)
 
 
