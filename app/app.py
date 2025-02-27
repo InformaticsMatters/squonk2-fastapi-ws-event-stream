@@ -178,7 +178,9 @@ async def event_stream(websocket: WebSocket, uuid: str):
         else:
             await websocket.send_text(str(message_body))
 
-    _LOGGER.debug("Leaving %s (uid=%s)...", es_id, uuid)
+    _LOGGER.debug("Closing %s (uuid=%s)...", es_id, uuid)
+    await websocket.close()
+    _LOGGER.debug("Closed %s", es_id)
 
 
 async def _get_from_queue(routing_key: str):
