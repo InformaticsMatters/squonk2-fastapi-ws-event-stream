@@ -158,7 +158,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
         routing_key,
     )
     await websocket.accept()
-    _LOGGER.debug("Accepted connection for %s", es_id)
+    _LOGGER.info("Accepted connection for %s", es_id)
 
     _LOGGER.debug("Creating reader for %s...", es_id)
     message_reader = _get_from_queue(routing_key)
@@ -173,16 +173,16 @@ async def event_stream(websocket: WebSocket, uuid: str):
         message_body = await reader
         _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
         if message_body == b"POISON":
-            _LOGGER.debug("Taking POISON for %s (%s) (closing)...", es_id, uuid)
+            _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
             _running = False
         else:
             await websocket.send_text(str(message_body))
 
-    _LOGGER.debug("Closing %s (uuid=%s)...", es_id, uuid)
+    _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
     await websocket.close(
         code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
     )
-    _LOGGER.debug("Closed %s", es_id)
+    _LOGGER.info("Closed %s", es_id)
 
 
 async def _get_from_queue(routing_key: str):
@@ -239,9 +239,16 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     db.commit()
     # Now pull the record back to get the assigned record ID...
     es = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid_str}'").fetchone()
-    assert es, f"Failed to insert new event stream {uuid_str}"
     db.close()
-
+    if not es:
+        msg: str = (
+            f"Failed to get new EventStream record ID for {uuid_str} (routing_key='{routing_key}')"
+        )
+        _LOGGER.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=msg,
+        )
     _LOGGER.info("Created %s", es)
 
     # And construct the location we'll be listening on...
@@ -285,9 +292,11 @@ def delete_es(es_id: int):
     es = cursor.execute(f"SELECT * FROM es WHERE id={es_id}").fetchone()
     db.close()
     if not es:
+        msg: str = f"EventStream {es_id} is not known"
+        _LOGGER.warning(msg)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"EventStream {es_id} is not known",
+            detail=msg,
         )
 
     _LOGGER.info(
