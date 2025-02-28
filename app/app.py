@@ -182,7 +182,8 @@ async def event_stream(websocket: WebSocket, uuid: str):
         "Reading messages for %s (message_reader=%s)...", es_id, message_reader
     )
     _running: bool = True
-    while _running:
+    _connected: bool = True
+    while _running and _connected:
         _LOGGER.debug("Calling anext() for %s...", es_id)
         reader = anext(message_reader)
         message_body = await reader
@@ -194,14 +195,19 @@ async def event_stream(websocket: WebSocket, uuid: str):
             try:
                 await websocket.send_text(str(message_body))
             except WebSocketDisconnect:
-                _LOGGER.warning("Got WebSocketDisconnect for %s (%s) (closing)...")
-                _running = False
+                _LOGGER.warning(
+                    "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
+                )
+                _connected = False
 
-    _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
-    await websocket.close(
-        code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
-    )
-    _LOGGER.info("Closed %s", es_id)
+    if _connected:
+        _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
+        await websocket.close(
+            code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+        )
+        _LOGGER.info("Closed %s", es_id)
+
+    _LOGGER.info("Disconnected %s (uuid=%s)...", es_id, uuid)
 
 
 async def _get_from_queue(routing_key: str):
