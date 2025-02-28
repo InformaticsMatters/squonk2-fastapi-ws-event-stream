@@ -181,19 +181,22 @@ async def event_stream(websocket: WebSocket, uuid: str):
     _LOGGER.debug(
         "Reading messages for %s (message_reader=%s)...", es_id, message_reader
     )
-    _running: bool = True
     _connected: bool = True
-    while _running and _connected:
+    while _connected:
         _LOGGER.debug("Calling anext() for %s...", es_id)
         reader = anext(message_reader)
         message_body = await reader
-        _LOGGER.debug("Got message for %s (message_body=%s)", es_id, message_body)
-        if message_body == b"POISON":
-            _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
-            _running = False
-        else:
+        if message_body:
+            if message_body == b"POISON":
+                _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
+                break
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                message_class: str = message_body.decode("utf-8").split("|", 1)[0]
+                _LOGGER.debug(
+                    "Got AS message for %s (message_class=%s)", es_id, message_class
+                )
             try:
-                await websocket.send_text(str(message_body))
+                await websocket.send_text(message_body)
             except WebSocketDisconnect:
                 _LOGGER.warning(
                     "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
