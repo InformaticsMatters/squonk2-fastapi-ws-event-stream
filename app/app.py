@@ -9,7 +9,7 @@ from typing import Any
 
 import aio_pika
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, status
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
 
 # Configure logging
@@ -176,7 +176,11 @@ async def event_stream(websocket: WebSocket, uuid: str):
             _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
             _running = False
         else:
-            await websocket.send_text(str(message_body))
+            try:
+                await websocket.send_text(str(message_body))
+            except WebSocketDisconnect:
+                _LOGGER.warning("Got WebSocketDisconnect for %s (%s) (closing)...")
+                _running = False
 
     _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
     await websocket.close(
