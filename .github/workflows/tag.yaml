@@ -42,6 +42,8 @@ jobs:
       run: echo "owner=${OWNER,,}" >> "$GITHUB_ENV"
       env:
         OWNER: '${{ github.repository_owner }}'
+    - name: Set version
+      run: echo ${{ github.ref_name }} > VERSION
     - name: Build and Push (Tag)
       uses: docker/build-push-action@v6
       with:

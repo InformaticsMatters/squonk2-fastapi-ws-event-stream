@@ -41,6 +41,9 @@ assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
 
+with open("VERSION", "r", encoding="utf-8") as version_file:
+    _VERSION: str = version_file.read().strip()
+
 
 def _get_location(uuid: str) -> str:
     """Returns the location (URL) for the event stream with the given UUID."""
@@ -93,6 +96,18 @@ class EventStreamPostRequestBody(BaseModel):
     """/event-stream/ POST request body."""
 
     routing_key: str
+
+
+class EventStreamGetVersionResponse(BaseModel):
+    """/event-stream/version/ GET response."""
+
+    # Category of the service (enumeration).
+    # We're a 'WEBSOCKET'
+    category: str
+    # Our name (ours is 'Python FastAPI')
+    name: str
+    # Our version number
+    version: str
 
 
 class EventStreamPostResponse(BaseModel):
@@ -214,7 +229,18 @@ async def _get_from_queue(routing_key: str):
 # Endpoints for the 'internal' event-stream management API -----------------------------
 
 
-@app_internal.post("/event-stream/", status_code=status.HTTP_201_CREATED)
+@app_internal.post("/event-stream/version/", status_code=status.HTTP_200_CREATED)
+def get_es_version() -> EventStreamGetVersionResponse:
+    """Returns our version information."""
+    # And construct the location we'll be listening on...
+    return EventStreamPostResponse(
+        category="WEBSOCKET",
+        name="Python FastAPI",
+        version=_VERSION,
+    )
+
+
+@app_internal.post("/event-stream/", status_code=status.HTTP_201_OK)
 def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse:
     """Create a new event-stream returning the endpoint location.
 
