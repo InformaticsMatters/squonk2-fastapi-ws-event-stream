@@ -229,18 +229,18 @@ async def _get_from_queue(routing_key: str):
 # Endpoints for the 'internal' event-stream management API -----------------------------
 
 
-@app_internal.post("/event-stream/version/", status_code=status.HTTP_200_CREATED)
+@app_internal.get("/event-stream/version/", status_code=status.HTTP_200_OK)
 def get_es_version() -> EventStreamGetVersionResponse:
     """Returns our version information."""
     # And construct the location we'll be listening on...
-    return EventStreamPostResponse(
+    return EventStreamGetVersionResponse(
         category="WEBSOCKET",
         name="Python FastAPI",
         version=_VERSION,
     )
 
 
-@app_internal.post("/event-stream/", status_code=status.HTTP_201_OK)
+@app_internal.post("/event-stream/", status_code=status.HTTP_201_CREATED)
 def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse:
     """Create a new event-stream returning the endpoint location.
 

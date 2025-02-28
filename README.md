@@ -125,10 +125,14 @@ And shut it down with: -
 
     docker compose down
 
-You can interact with it using `http`, where you should be able to create
-and delete event streams using the internal API. Here we're using
-`jq` and `cut` to process the response body to simplify the subsequent **DELETE**
-request: -
+You can interact with it using `http`, where you should be able to
+get the version of the service, create, and delete event streams
+using the internal API: -
+
+    http localhost:8081/event-stream/version/ -b
+
+Here we're using `jq` and `cut` to process the response body to simplify the
+subsequent **DELETE** request: -
 
 To create (**POST**) an event stream, run the following:
 
