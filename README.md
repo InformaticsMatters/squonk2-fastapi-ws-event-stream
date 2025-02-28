@@ -20,9 +20,10 @@ Namespace of the AS to service internal requests from the API to create, delete
 and connect to the internal messaging bus to stream events to a client.
 
 The implementation is based on Python and the [FastAPI] framework, offering
-_public_ WebSockets managed by an _internal_ API, managed by the AS using
-the required endpoints: -
+_public_ WebSockets managed by an _internal_ API using the following (required)
+endpoints: -
 
+    /event-stream/version/ GET
     /event-stream/ POST
     /event-stream/ GET
     /event-stream/{id} DELETE
