@@ -98,9 +98,10 @@ cluster. The Account Server will be able to manage event streams via the URL
 `http://ess-ws-api:8081/event-stream/`.
 
 The external web-socket service will be available on the ingress host you've specified,
-as either a `ws://` or `wss://` service, depending on the ingress configuration. If
-the host is `example.com` you should be able to connect to an unsecure web socket using
-the URL `ws://example.com/event-stream/{uuid}`.
+as either a `ws://` or `wss://` service, depending on whether you have set
+the Ansible variable `ess_cert_issuer`. If the host is `example.com` you should be able
+to connect to an unsecured web socket using the URL `ws://example.com/event-stream/{uuid}`
+or `wss://example.com/event-stream/{uuid}` for a secured connection.
 
 To update the running image (to deploy a new tagged version) just re-run the
 playbook with a suitable value for `ess_image_tag`.
