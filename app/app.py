@@ -73,7 +73,7 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     )
     _DB_CONNECTION.commit()
     _DB_CONNECTION.close()
-    _LOGGER.info("Created")
+    _LOGGER.info("Created (or exists)")
 
     # List existing event streams
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
