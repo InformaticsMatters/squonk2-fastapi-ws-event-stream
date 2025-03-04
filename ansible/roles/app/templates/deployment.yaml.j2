@@ -70,9 +70,11 @@ spec:
           value: '{{ ess_ampq_url }}'
         - name: ESS_INGRESS_LOCATION
           value: '{{ ess_ws_hostname }}'
-{% if ess_cert_issuer %}
         - name: ESS_INGRESS_SECURE
+{% if ess_cert_issuer %}
           value: 'yes'
+{% else %}
+          value: 'no'
 {% endif %}
         # CICD_TRIGGER_ID is variable whose value is used to force
         # a redeployment of the underlying containers. This is used in
