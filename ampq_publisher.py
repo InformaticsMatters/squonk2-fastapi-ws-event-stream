@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """A simple RabbitMQ message publisher for local testing.
-Takes a 'routing key' and sends a message to the 'expected' AS exchange
-on a localhost RabbitMQ server. The AMPQ URL is specified below and is expected
+
+Takes a 'routing key' and sends a built-in message to the 'event-streams' AS exchange
+on a RabbitMQ server. The AMPQ URL is specified below and is expected
 to match the ESS_AMPQ_URL value used in the project's docker-compose file.
 It can be changed by providing a second argument on the command line.
 
@@ -48,6 +49,9 @@ _MESSAGE_STRING: str = text_format.MessageToString(_MESSAGE, as_one_line=True)
 
 async def main() -> None:
     """Publish a message."""
+    body_str: str = f"{_MESSAGE_CLASS}|{_MESSAGE_STRING}"
+    print(f"Sending {body_str} (to {_AMPQ_URL})...")
+
     connection = await aio_pika.connect_robust(_AMPQ_URL)
     async with connection:
         channel = await connection.channel()
@@ -58,7 +62,7 @@ async def main() -> None:
             durable=True,
         )
         await es_exchange.publish(
-            aio_pika.Message(body=f"{_MESSAGE_CLASS}|{_MESSAGE_STRING}".encode()),
+            aio_pika.Message(body_str.encode()),
             routing_key=_ROUTING_KEY,
         )
 
