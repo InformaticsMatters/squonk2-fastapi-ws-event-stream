@@ -241,7 +241,6 @@ async def _get_from_queue(routing_key: str):
 @app_internal.get("/event-stream/version/", status_code=status.HTTP_200_OK)
 def get_es_version() -> EventStreamGetVersionResponse:
     """Returns our version information."""
-    # And construct the location we'll be listening on...
     return EventStreamGetVersionResponse(
         category="WEBSOCKET",
         name="Python FastAPI",
