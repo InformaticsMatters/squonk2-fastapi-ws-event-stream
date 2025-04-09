@@ -198,7 +198,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
             try:
                 await websocket.send_text(message_body)
             except WebSocketDisconnect:
-                _LOGGER.warning(
+                _LOGGER.info(
                     "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
                 )
                 _connected = False
