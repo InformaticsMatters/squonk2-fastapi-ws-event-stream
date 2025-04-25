@@ -173,6 +173,13 @@ by the client using the command: -
     the one used by RabbitMQ in the docker-compose file. If you need to change this
     you can provide a different AMPQ URL as a 2nd argument on the command line.
 
+## Version 1
+Version 1 uses the `pika` package and relies on a classic exchange-based
+RabbitMQ Topic Queue.
+
+## Version 2
+Version 2 uses the `rstream` package and relies on a RabbitMQ stream.
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable

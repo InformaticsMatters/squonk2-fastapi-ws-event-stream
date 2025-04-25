@@ -49,7 +49,12 @@ _PARSED_AMPQ_URL: ParseResult = urlparse(_AMPQ_URL)
 _AMPQ_HOSTNAME: str | None = _PARSED_AMPQ_URL.hostname
 _AMPQ_USERNAME: str | None = _PARSED_AMPQ_URL.username
 _AMPQ_PASSWORD: str | None = _PARSED_AMPQ_URL.password
-_AMPQ_VHOST: str = _PARSED_AMPQ_URL.path
+# The URL path will be something like '/as'.
+# The vhost we need here is 'as'...
+if len(_PARSED_AMPQ_URL.path) > 1:
+    _AMPQ_VHOST: str = _PARSED_AMPQ_URL.path[1:]
+else:
+    _AMPQ_VHOST = "/"
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
