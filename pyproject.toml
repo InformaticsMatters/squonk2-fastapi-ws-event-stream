@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "squonk2-fastapi-ws-event-stream"
-version = "1.0.0"
+version = "2.0.0"
 package-mode = false
 description = "A Squonk2 Python FastAPI AS EvenStream Service"
 authors = ["Alan Christie <alan.christie@matildapeak.com>"]
@@ -11,9 +11,9 @@ readme = "README.md"
 fastapi = "0.115.8"
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 # Flexible versions
-aio-pika = "^9.5.4"
 pydantic = "^2.10.6"
 python = "^3.12"
+rstream = "^0.20.9"
 shortuuid = "^1.0.13"
 
 [tool.poetry.group.dev.dependencies]

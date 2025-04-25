@@ -6,11 +6,18 @@ import os
 import sqlite3
 from logging.config import dictConfig
 from typing import Any
+from urllib.parse import ParseResult, urlparse
 
-import aio_pika
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import FastAPI, HTTPException, WebSocket, status
 from pydantic import BaseModel
+from rstream import (
+    AMQPMessage,
+    Consumer,
+    ConsumerOffsetSpecification,
+    MessageContext,
+    OffsetType,
+)
 
 # Configure logging
 print("Configuring logging...")
@@ -34,9 +41,15 @@ _INGRESS_LOCATION: str = os.getenv("ESS_INGRESS_LOCATION", "localhost:8080")
 assert _INGRESS_LOCATION, "ESS_INGRESS_LOCATION environment variable must be set"
 _INGRESS_SECURE: bool = os.getenv("ESS_INGRESS_SECURE", "no").lower() == "yes"
 
-_AMPQ_EXCHANGE: str = "event-streams"
+_RETENTION_BYTES: str = os.getenv("ESS_RETENTION_BYTES", "5_000_000_000")
 _AMPQ_URL: str = os.getenv("ESS_AMPQ_URL", "")
 assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
+
+_PARSED_AMPQ_URL: ParseResult = urlparse(_AMPQ_URL)
+_AMPQ_HOSTNAME: str | None = _PARSED_AMPQ_URL.hostname
+_AMPQ_USERNAME: str | None = _PARSED_AMPQ_URL.username
+_AMPQ_PASSWORD: str | None = _PARSED_AMPQ_URL.password
+_AMPQ_VHOST: str = _PARSED_AMPQ_URL.path
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -55,7 +68,6 @@ def _get_location(uuid: str) -> str:
 # Logic specific to the 'internal API' process
 if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     # Display configuration
-    _LOGGER.info("AMPQ_EXCHANGE: %s", _AMPQ_EXCHANGE)
     _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
     _LOGGER.info("DATABASE_PATH: %s", _DATABASE_PATH)
     _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
@@ -64,7 +76,7 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     # Create the database.
     # A table to record allocated Event Streams.
     # The table 'id' is an INTEGER PRIMARY KEY and so becomes an auto-incrementing
-    # value when NONE is passed in as it's value.
+    # value when NONE is passed in as its value.
     _LOGGER.info("Creating SQLite database (if not present)...")
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
@@ -142,7 +154,8 @@ async def event_stream(websocket: WebSocket, uuid: str):
 
     The socket will close if a 'POISON' message is received.
     The AS will insert one of these into the stream after it is has been closed.
-    i.e. the API will call us to close the connection (removing the record from our DB)
+    i.e. the API will call us to close the connection after it has removed
+    the record from its DB and our DB (by calling our delete_es() API method)
     before sending the poison pill.
     """
 
@@ -175,64 +188,104 @@ async def event_stream(websocket: WebSocket, uuid: str):
     await websocket.accept()
     _LOGGER.info("Accepted connection for %s", es_id)
 
-    _LOGGER.debug("Creating reader for %s...", es_id)
-    message_reader = _get_from_queue(routing_key)
-
-    _LOGGER.debug(
-        "Reading messages for %s (message_reader=%s)...", es_id, message_reader
+    _LOGGER.debug("Creating Consumer for %s...", es_id)
+    consumer: Consumer = Consumer(
+        host=_AMPQ_HOSTNAME,
+        username=_AMPQ_USERNAME,
+        password=_AMPQ_PASSWORD,
+        vhost=_AMPQ_VHOST,
     )
-    _connected: bool = True
-    while _connected:
-        _LOGGER.debug("Calling anext() for %s...", es_id)
-        reader = anext(message_reader)
-        message_body = await reader
-        if message_body:
-            if message_body == b"POISON":
-                _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
-                break
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                message_class: str = message_body.decode("utf-8").split("|", 1)[0]
-                _LOGGER.debug(
-                    "Got AS message for %s (message_class=%s)", es_id, message_class
-                )
-            try:
-                await websocket.send_text(message_body)
-            except WebSocketDisconnect:
-                _LOGGER.info(
-                    "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
-                )
-                _connected = False
+    _LOGGER.debug("Consuming %s...", es_id)
+    _consume(
+        consumer=consumer, stream_name=routing_key, es_id=es_id, websocket=websocket
+    )
 
-    if _connected:
-        _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
-        await websocket.close(
-            code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
-        )
-        _LOGGER.info("Closed %s", es_id)
+    #    _LOGGER.debug(
+    #        "Reading messages for %s (message_reader=%s)...", es_id, message_reader
+    #    )
+    #    _connected: bool = True
+    #    while _connected:
+    #        _LOGGER.debug("Calling anext() for %s...", es_id)
+    #        reader = anext(message_reader)
+    #        message_body = await reader
+    #        if message_body:
+    #            if message_body == b"POISON":
+    #                _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
+    #                break
+    #            if _LOGGER.isEnabledFor(logging.DEBUG):
+    #                message_class: str = message_body.decode("utf-8").split("|", 1)[0]
+    #                _LOGGER.debug(
+    #                    "Got AS message for %s (message_class=%s)", es_id, message_class
+    #                )
+    #            try:
+    #                await websocket.send_text(message_body)
+    #            except WebSocketDisconnect:
+    #                _LOGGER.info(
+    #                    "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
+    #                )
+    #                _connected = False
+    #
+    #    if _connected:
+    #        _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
+    #        await websocket.close(
+    #            code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+    #        )
+    #        _LOGGER.info("Closed %s", es_id)
 
     _LOGGER.info("Disconnected %s (uuid=%s)...", es_id, uuid)
 
 
-async def _get_from_queue(routing_key: str):
+async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
+    """Here we use "currying" to append pre-set parameters
+    to a function that wil be used as the stream consumer message callback handler.
+    We need the callback to 'know' the WebSocket and (for diagnostics) the ES ID
+    """
+    assert websocket
+
+    async def on_message_for_websocket(
+        msg: AMQPMessage, message_context: MessageContext
+    ):
+        # The MessageContext contains: -
+        # - consumer: Consumer
+        # - subscriber_name: str
+        # - offset: int
+        # - timestamp: int
+        r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
+        _LOGGER.info("Got msg='%s' stream=%s es_id=%s", msg, r_stream, es_id)
+        _LOGGER.info(
+            "With offset=%s timestamp=%s",
+            message_context.offset,
+            message_context.timestamp,
+        )
+
+    return on_message_for_websocket
+
+
+async def _consume(
+    *, consumer: Consumer, stream_name: str, es_id: str, websocket: WebSocket
+):
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    connection = await aio_pika.connect_robust(_AMPQ_URL)
+    _LOGGER.info("Creating stream %s (%s)...", stream_name, es_id)
+    await consumer.create_stream(
+        stream_name, exists_ok=True, arguments={"MaxLengthBytes": _RETENTION_BYTES}
+    )
 
-    async with connection:
-        channel = await connection.channel()
-        es_exchange: aio_pika.AbstractExchange = await channel.declare_exchange(
-            _AMPQ_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
-        )
-        queue = await channel.declare_queue(
-            auto_delete=True, durable=True, exclusive=True
-        )
-        await queue.bind(es_exchange, routing_key)
+    on_message = await generate_on_message_for_websocket(websocket, es_id)
 
-        async with queue.iterator() as queue_iter:
-            async for message in queue_iter:
-                async with message.process():
-                    yield message.body
+    _LOGGER.info("Starting consumer %s...", es_id)
+    await consumer.start()
+    _LOGGER.info("Subscribing %s...", es_id)
+    await consumer.subscribe(
+        stream=stream_name,
+        callback=on_message,
+        offset_specification=ConsumerOffsetSpecification(OffsetType.FIRST, None),
+    )
+    _LOGGER.info("Running %s...", es_id)
+    await consumer.run()
+
+    _LOGGER.info("Stopped %s...", es_id)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
