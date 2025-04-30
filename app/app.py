@@ -305,8 +305,10 @@ async def _consume(
     )
     _LOGGER.info("Running %s...", es_id)
     await consumer.run()
+    _LOGGER.info("Stopped %s (closing)...", es_id)
+    await consumer.close()
 
-    _LOGGER.info("Stopped %s...", es_id)
+    _LOGGER.info("Closed %s", es_id)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
