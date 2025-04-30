@@ -193,7 +193,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
     await websocket.accept()
     _LOGGER.info("Accepted connection for %s", es_id)
 
-    _LOGGER.debug(
+    _LOGGER.info(
         "Creating Consumer for %s (%s:%s@%s/%s)...",
         es_id,
         _AMPQ_USERNAME,
@@ -208,7 +208,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
         vhost=_AMPQ_VHOST,
         load_balancer_mode=True,
     )
-    _LOGGER.debug("Consuming %s...", es_id)
+    _LOGGER.info("Consuming %s...", es_id)
     await _consume(
         consumer=consumer, stream_name=routing_key, es_id=es_id, websocket=websocket
     )
@@ -280,7 +280,7 @@ async def _consume(
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    _LOGGER.info("Creating stream name '%s' (%s)...", stream_name, es_id)
+    _LOGGER.info("Creating stream name '%s' for %s...", stream_name, es_id)
     await consumer.create_stream(
         stream_name, exists_ok=True, arguments={"MaxLengthBytes": _RETENTION_BYTES}
     )
