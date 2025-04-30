@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import ParseResult, urlparse
 
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, status
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
 from rstream import (
     AMQPMessage,
@@ -185,7 +185,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
     es_id = es[0]
     routing_key: str = es[2]
 
-    _LOGGER.debug(
+    _LOGGER.info(
         "Waiting for 'accept' on stream %s (uuid=%s routing_key='%s')...",
         es_id,
         uuid,
@@ -260,10 +260,11 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         msg: AMQPMessage, message_context: MessageContext
     ):
         # The MessageContext contains: -
-        # - consumer: Consumer
+        # - consumer: The Consumer object
         # - subscriber_name: str
-        # - offset: int
-        # - timestamp: int
+        # - offset: int (numerical offset in the stream 0..N)
+        # - timestamp: int (milliseconds since Python time epoch)
+        #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info("Got msg='%s' stream=%s es_id=%s", msg, r_stream, es_id)
         _LOGGER.info(
@@ -271,6 +272,16 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             message_context.offset,
             message_context.timestamp,
         )
+
+        if msg == b"POISON":
+            _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
+            message_context.consumer.stop()
+        else:
+            try:
+                await websocket.send_text(msg)
+            except WebSocketDisconnect:
+                _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
+                message_context.consumer.stop()
 
     return on_message_for_websocket
 
