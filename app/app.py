@@ -314,7 +314,9 @@ async def _consume(
         stream=stream_name,
         callback=on_message,
         decoder=amqp_decoder,
-        offset_specification=ConsumerOffsetSpecification(OffsetType.FIRST, None),
+        offset_specification=ConsumerOffsetSpecification(
+            OffsetType.TIMESTAMP, 1746041482000
+        ),
     )
     _LOGGER.info("Running %s...", es_id)
     await consumer.run()
