@@ -273,15 +273,28 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             message_context.timestamp,
         )
 
+        shutdown: bool = False
         if msg == b"POISON":
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
-            message_context.consumer.stop()
+            shutdown = True
         else:
             try:
+                _LOGGER.info("Sending msg for %s...", es_id)
                 await websocket.send_text(msg)
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
-                message_context.consumer.stop()
+                shutdown = True
+
+        if shutdown:
+            _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
+            message_context.consumer.stop()
+            _LOGGER.info("Closing socket for %s (shutdown)...", es_id)
+            await websocket.close(
+                code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+            )
+            _LOGGER.info("Closed socket for %s (shutdown)", es_id)
+
+        _LOGGER.info("Handled msg for %s...", es_id)
 
     return on_message_for_websocket
 
