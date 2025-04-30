@@ -201,7 +201,7 @@ async def event_stream(websocket: WebSocket, uuid: str):
         vhost=_AMPQ_VHOST,
     )
     _LOGGER.debug("Consuming %s...", es_id)
-    _consume(
+    await _consume(
         consumer=consumer, stream_name=routing_key, es_id=es_id, websocket=websocket
     )
 
