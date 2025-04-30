@@ -17,6 +17,7 @@ from rstream import (
     ConsumerOffsetSpecification,
     MessageContext,
     OffsetType,
+    amqp_decoder,
 )
 
 # Configure logging
@@ -280,11 +281,6 @@ async def _consume(
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    _LOGGER.info("Creating stream name '%s' for %s...", stream_name, es_id)
-    await consumer.create_stream(
-        stream_name, exists_ok=True, arguments={"MaxLengthBytes": _RETENTION_BYTES}
-    )
-
     on_message = await generate_on_message_for_websocket(websocket, es_id)
 
     _LOGGER.info("Starting consumer %s...", es_id)
@@ -293,6 +289,7 @@ async def _consume(
     await consumer.subscribe(
         stream=stream_name,
         callback=on_message,
+        decoder=amqp_decoder,
         offset_specification=ConsumerOffsetSpecification(OffsetType.FIRST, None),
     )
     _LOGGER.info("Running %s...", es_id)
