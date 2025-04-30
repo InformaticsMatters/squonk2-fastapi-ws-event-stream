@@ -280,7 +280,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         else:
             try:
                 _LOGGER.info("Sending msg for %s...", es_id)
-                await websocket.send_text(msg)
+                await websocket.send_text(str(msg))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
