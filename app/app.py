@@ -360,15 +360,8 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
                 message_string += (
                     f"|{message_context.offset}|{message_context.timestamp}"
                 )
-                patched_msg: AMQPMessage = AMQPMessage(
-                    body=bytes(message_string, "utf-8")
-                )
-            else:
-                patched_msg: AMQPMessage = AMQPMessage(
-                    body=bytes(message_string, "utf-8")
-                )
             try:
-                await websocket.send_text(str(patched_msg)[2:-1])
+                await websocket.send_text(message_string)
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
