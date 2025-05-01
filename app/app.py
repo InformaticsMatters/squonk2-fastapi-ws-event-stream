@@ -4,12 +4,21 @@ import json
 import logging
 import os
 import sqlite3
+import time
 from logging.config import dictConfig
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import ParseResult, urlparse
 
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from dateutil.parser import parse
+from fastapi import (
+    FastAPI,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from pydantic import BaseModel
 from rstream import (
     AMQPMessage,
@@ -42,7 +51,6 @@ _INGRESS_LOCATION: str = os.getenv("ESS_INGRESS_LOCATION", "localhost:8080")
 assert _INGRESS_LOCATION, "ESS_INGRESS_LOCATION environment variable must be set"
 _INGRESS_SECURE: bool = os.getenv("ESS_INGRESS_SECURE", "no").lower() == "yes"
 
-_RETENTION_BYTES: str = os.getenv("ESS_RETENTION_BYTES", "5_000_000_000")
 _AMPQ_URL: str = os.getenv("ESS_AMPQ_URL", "")
 assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
 
@@ -153,7 +161,13 @@ class EventStreamGetResponse(BaseModel):
 
 
 @app_public.websocket("/event-stream/{uuid}")
-async def event_stream(websocket: WebSocket, uuid: str):
+async def event_stream(
+    websocket: WebSocket,
+    uuid: str,
+    x_streamfromdatetime: Annotated[str | None, Header()] = None,
+    x_streamfromordinal: Annotated[str | None, Header()] = None,
+    x_streamfromtimestamp: Annotated[str | None, Header()] = None,
+):
     """The websocket handler for the event-stream.
     The UUID is returned to the AS when the web-socket is created
     using a POST to /event-stream/.
@@ -164,6 +178,67 @@ async def event_stream(websocket: WebSocket, uuid: str):
     the record from its DB and our DB (by calling our delete_es() API method)
     before sending the poison pill.
     """
+
+    # Custom request headers.
+    # The following are used to identify the first event in a stream: -
+    #
+    #   X-StreamFromDatetime - an ISO8601 date/time string
+    #   X-StreamFromTimestamp - an event timestamp (integer) from a prior message
+    #   X-StreamFromOrdinal - a message ordinal (integer 0..N)
+    #
+    # Only one of the above is expected.
+    num_stream_from_specified: int = 0
+    header_value_error: bool = False
+    header_value_error_msg: str = ""
+    # Ultimately we set this object...
+    offset_specification: ConsumerOffsetSpecification = ConsumerOffsetSpecification(
+        OffsetType.NEXT
+    )
+    # Was a streaming offset provided?
+    if x_streamfromdatetime:
+        num_stream_from_specified += 1
+        try:
+            from_datetime = parse(x_streamfromdatetime)
+            # We need a RabbitMQ stream timestamp,
+            # which is the universal time epoch (1 Jan, 1970)...
+            datetime_timestamp = int(time.mktime(from_datetime.timetuple()))
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.TIMESTAMP, datetime_timestamp
+            )
+        except:  # pylint: disable=bare-except
+            header_value_error = True
+            header_value_error_msg = "Unable to parse X-StreamFromDatetime value"
+    if x_streamfromordinal:
+        num_stream_from_specified += 1
+        try:
+            from_ordinal = int(x_streamfromordinal)
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.OFFSET, from_ordinal
+            )
+        except ValueError:
+            header_value_error = True
+            header_value_error_msg = "X-StreamFromOrdinal must be an integer"
+    if x_streamfromtimestamp:
+        num_stream_from_specified += 1
+        try:
+            from_timestamp = int(x_streamfromtimestamp)
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.TIMESTAMP, from_timestamp
+            )
+        except ValueError:
+            header_value_error = True
+            header_value_error_msg = "X-StreamFromTimestamp must be an integer"
+
+    # Replace any error with a 'too many values provided' error if necessary
+    if num_stream_from_specified > 1:
+        header_value_error = True
+        header_value_error_msg = "Cannot provide more than one X-StreamFrom value"
+
+    if header_value_error:
+        raise HTTPException(
+            status_code=status.HTTP_BAD_REQUEST,
+            detail=header_value_error_msg,
+        )
 
     # Get the DB record for this UUID...
     _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
@@ -211,7 +286,11 @@ async def event_stream(websocket: WebSocket, uuid: str):
     )
     _LOGGER.info("Consuming %s...", es_id)
     await _consume(
-        consumer=consumer, stream_name=routing_key, es_id=es_id, websocket=websocket
+        consumer=consumer,
+        stream_name=routing_key,
+        es_id=es_id,
+        websocket=websocket,
+        offset_specification=offset_specification,
     )
 
     #    _LOGGER.debug(
@@ -267,7 +346,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info("Got msg='%s' stream=%s es_id=%s", msg, r_stream, es_id)
-        _LOGGER.info(
+        _LOGGER.debug(
             "With offset=%s timestamp=%s",
             message_context.offset,
             message_context.timestamp,
@@ -279,11 +358,13 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             shutdown = True
         else:
             try:
-                _LOGGER.info("Sending msg for %s...", es_id)
+                _LOGGER.debug("Sending msg for %s...", es_id)
                 await websocket.send_text(str(msg))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
+
+        _LOGGER.debug("Handled msg for %s...", es_id)
 
         if shutdown:
             _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
@@ -294,13 +375,16 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             )
             _LOGGER.info("Closed socket for %s (shutdown)", es_id)
 
-        _LOGGER.info("Handled msg for %s...", es_id)
-
     return on_message_for_websocket
 
 
 async def _consume(
-    *, consumer: Consumer, stream_name: str, es_id: str, websocket: WebSocket
+    *,
+    consumer: Consumer,
+    stream_name: str,
+    es_id: str,
+    websocket: WebSocket,
+    offset_specification: ConsumerOffsetSpecification,
 ):
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
@@ -314,9 +398,7 @@ async def _consume(
         stream=stream_name,
         callback=on_message,
         decoder=amqp_decoder,
-        offset_specification=ConsumerOffsetSpecification(
-            OffsetType.TIMESTAMP, 1746041482000
-        ),
+        offset_specification=offset_specification,
     )
     _LOGGER.info("Running %s...", es_id)
     await consumer.run()

@@ -3,4 +3,6 @@
 # Disable some distracting checks.
 # See http://pylint.pycqa.org/en/latest/user_guide/message-control.html
 disable = R0801,
-          too-few-public-methods
+          too-few-public-methods,
+          too-many-locals,
+          too-many-statements
