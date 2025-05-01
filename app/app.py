@@ -332,10 +332,8 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info(
-            "Got msg='%s' (type=%sn encoding=%s) stream=%s es_id=%s",
+            "Got msg='%s' stream=%s es_id=%s",
             msg,
-            type(msg),
-            json.detect_encoding(msg),
             r_stream,
             es_id,
         )
