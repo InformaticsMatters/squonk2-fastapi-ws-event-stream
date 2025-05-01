@@ -198,6 +198,7 @@ async def event_stream(
     if x_streamfromdatetime:
         num_stream_from_specified += 1
         try:
+            _LOGGER.info("X-StreamFromDatetime=%s", x_streamfromdatetime)
             from_datetime = parse(x_streamfromdatetime)
             # We need a RabbitMQ stream timestamp,
             # which is the universal time epoch (1 Jan, 1970)...
@@ -209,6 +210,7 @@ async def event_stream(
             header_value_error = True
             header_value_error_msg = "Unable to parse X-StreamFromDatetime value"
     if x_streamfromordinal:
+        _LOGGER.info("X-StreamFromOrdinal=%s", x_streamfromordinal)
         num_stream_from_specified += 1
         try:
             from_ordinal = int(x_streamfromordinal)
@@ -219,6 +221,7 @@ async def event_stream(
             header_value_error = True
             header_value_error_msg = "X-StreamFromOrdinal must be an integer"
     if x_streamfromtimestamp:
+        _LOGGER.info("X-StreamFromTimestamp=%s", x_streamfromtimestamp)
         num_stream_from_specified += 1
         try:
             from_timestamp = int(x_streamfromtimestamp)
@@ -370,12 +373,12 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
                 decoded_msg = json.dumps(msg_dict)
             else:
                 # An EventStreaming service is permitted to add any properties
-                # as long as it uses the separator "|" and places properties at the end
+                # as long as it uses the separator "|str()" and places properties at the end
                 # of the received string.
-                decoded_msg = f"{decoded_msg}|{message_context.offset}|{message_context.timestamp}"
+                decoded_msg = f"{decoded_msg}|{message_context.offset}|{message_context.timestamp}|"
             try:
                 _LOGGER.debug("Sending msg for %s...", es_id)
-                await websocket.send_text(decoded_msg)
+                await websocket.send_text(str(decoded_msg.encode("utf-8")))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
