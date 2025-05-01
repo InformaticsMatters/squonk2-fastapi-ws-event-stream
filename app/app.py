@@ -356,30 +356,13 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         )
 
         shutdown: bool = False
-        decoded_msg: str = msg.decode(encoding="utf-8")
-        if decoded_msg == "POISON":
+        #        decoded_msg: str = msg.decode(encoding="utf-8")
+        if msg == b"POISON":
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
-        elif decoded_msg:
-            # Insert the Stream offset and timestamp.
-            # The message is either a protobuf String or a JSON string.
-            if decoded_msg[0] == "{":
-                # JSON string.
-                # An EventStreaming service is permitted to add any properties
-                # as long as it uses the prefix "ess_"
-                msg_dict = json.loads(decoded_msg)
-                msg_dict["ess_offset"] = message_context.offset
-                msg_dict["ess_timestamp"] = message_context.timestamp
-                decoded_msg = json.dumps(msg_dict)
-            else:
-                # An EventStreaming service is permitted to add any properties
-                # as long as it uses the separator "|str()" and places properties at the end
-                # of the received string.
-                decoded_msg = f"{decoded_msg}|{message_context.offset}|{message_context.timestamp}|"
-            text = decoded_msg.encode("utf-8")
-            _LOGGER.info("Sending msg for %s (%s)...", es_id, text)
+        elif msg:
             try:
-                await websocket.send_text(text)
+                await websocket.send_text(str(msg))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
