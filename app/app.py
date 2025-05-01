@@ -352,14 +352,21 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
         elif msg:
-            # The EventStream Service is permitted to append to the protobuf string
-            # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
             # We know the AMQPMessage (as a string will start "b'" and end "'"
             message_string = str(msg)[2:-1]
             if message_string[0] != "{":
+                # The EventStream Service is permitted to append to the protobuf string
+                # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
                 message_string += (
                     f"|{message_context.offset}|{message_context.timestamp}"
                 )
+            else:
+                # The EventStream Service is permitted to append to the JSON string
+                # as long as it uses keys with the prefix "ess_"
+                msg_dict: dict[str, Any] = json.loads(message_string)
+                msg_dict["ess_offset"] = message_context.offset
+                msg_dict["ess_timestamp"] = message_context.timestamp
+                message_string = json.dumps(msg_dict)
             try:
                 await websocket.send_text(message_string)
             except WebSocketDisconnect:
