@@ -353,13 +353,25 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         )
 
         shutdown: bool = False
-        if msg == b"POISON":
+        decoded_msg: str = msg.decode(encoding="utf-8")
+        if decoded_msg == "POISON":
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
-        else:
+        elif decoded_msg:
+            # Insert the Stream offset and timestamp.
+            # The message is either a protobuf String or a JSON string.
+            if decoded_msg[0] == "{":
+                # JSON string
+                msg_dict = json.loads(decoded_msg)
+                msg_dict["offset"] = message_context.offset
+                msg_dict["timestamp"] = message_context.timestamp
+                decoded_msg = json.dumps(msg_dict)
+            else:
+                # Protobuf String
+                decoded_msg = f"{message_context.offset}|{message_context.timestamp}|{decoded_msg}"
             try:
                 _LOGGER.debug("Sending msg for %s...", es_id)
-                await websocket.send_text(str(msg))
+                await websocket.send_text(decoded_msg)
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
