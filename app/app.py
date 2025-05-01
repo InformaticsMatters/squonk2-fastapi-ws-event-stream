@@ -201,8 +201,9 @@ async def event_stream(
             _LOGGER.info("X-StreamFromDatetime=%s", x_streamfromdatetime)
             from_datetime = parse(x_streamfromdatetime)
             # We need a RabbitMQ stream timestamp,
-            # which is the universal time epoch (1 Jan, 1970)...
-            datetime_timestamp = int(time.mktime(from_datetime.timetuple()))
+            # which is milliseconds since the universal time epoch (1 Jan, 1970).
+            # It's easy to get 'seconds', which we multiply by 1,000
+            datetime_timestamp = int(time.mktime(from_datetime.timetuple())) * 1_000
             offset_specification = ConsumerOffsetSpecification(
                 OffsetType.TIMESTAMP, datetime_timestamp
             )
