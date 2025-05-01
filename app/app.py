@@ -28,6 +28,7 @@ from rstream import (
     OffsetType,
     amqp_decoder,
 )
+from rstream.exceptions import StreamDoesNotExist
 
 # Configure logging
 print("Configuring logging...")
@@ -297,37 +298,10 @@ async def event_stream(
         offset_specification=offset_specification,
     )
 
-    #    _LOGGER.debug(
-    #        "Reading messages for %s (message_reader=%s)...", es_id, message_reader
-    #    )
-    #    _connected: bool = True
-    #    while _connected:
-    #        _LOGGER.debug("Calling anext() for %s...", es_id)
-    #        reader = anext(message_reader)
-    #        message_body = await reader
-    #        if message_body:
-    #            if message_body == b"POISON":
-    #                _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
-    #                break
-    #            if _LOGGER.isEnabledFor(logging.DEBUG):
-    #                message_class: str = message_body.decode("utf-8").split("|", 1)[0]
-    #                _LOGGER.debug(
-    #                    "Got AS message for %s (message_class=%s)", es_id, message_class
-    #                )
-    #            try:
-    #                await websocket.send_text(message_body)
-    #            except WebSocketDisconnect:
-    #                _LOGGER.info(
-    #                    "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
-    #                )
-    #                _connected = False
-    #
-    #    if _connected:
-    #        _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
-    #        await websocket.close(
-    #            code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
-    #        )
-    #        _LOGGER.info("Closed %s", es_id)
+    await websocket.close(
+        code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+    )
+    _LOGGER.info("Closed WebSocket for %s", es_id)
 
     _LOGGER.info("Disconnected %s (uuid=%s)...", es_id, uuid)
 
@@ -373,11 +347,6 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         if shutdown:
             _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
             message_context.consumer.stop()
-            _LOGGER.info("Closing socket for %s (shutdown)...", es_id)
-            await websocket.close(
-                code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
-            )
-            _LOGGER.info("Closed socket for %s (shutdown)", es_id)
 
     return on_message_for_websocket
 
@@ -403,18 +372,26 @@ async def _consume(
     )
     await consumer.start()
     _LOGGER.info("Subscribing %s...", es_id)
-    await consumer.subscribe(
-        stream=stream_name,
-        callback=on_message,
-        decoder=amqp_decoder,
-        offset_specification=offset_specification,
-    )
-    _LOGGER.info("Running %s...", es_id)
-    await consumer.run()
-    _LOGGER.info("Stopped %s (closing)...", es_id)
-    await consumer.close()
+    subscribed: bool = True
+    try:
+        await consumer.subscribe(
+            stream=stream_name,
+            callback=on_message,
+            decoder=amqp_decoder,
+            offset_specification=offset_specification,
+        )
+    except StreamDoesNotExist:
+        _LOGGER.warning("Stream '%s' for %s does not exist", stream_name, es_id)
+        subscribed = False
 
-    _LOGGER.info("Closed %s", es_id)
+    if subscribed:
+        _LOGGER.info("Running %s...", es_id)
+        await consumer.run()
+        _LOGGER.info("Stopped %s (closing)...", es_id)
+        await consumer.close()
+        _LOGGER.info("Closed %s", es_id)
+
+    _LOGGER.info("Stopped consuming for %s", es_id)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
