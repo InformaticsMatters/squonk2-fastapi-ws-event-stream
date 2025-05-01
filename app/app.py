@@ -21,6 +21,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from rstream import (
+    AMQPMessage,
     Consumer,
     ConsumerOffsetSpecification,
     MessageContext,
@@ -320,7 +321,9 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
     """
     assert websocket
 
-    async def on_message_for_websocket(msg: bytes, message_context: MessageContext):
+    async def on_message_for_websocket(
+        msg: AMQPMessage, message_context: MessageContext
+    ):
         # The message is expected to be formed from an
         # AMQPMessage generated in the AS using 'body=bytes(message_string, "utf-8")'
         #
@@ -332,9 +335,8 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info(
-            "Got msg='%s' (type=%s) stream=%s es_id=%s",
+            "Got msg='%s' stream=%s es_id=%s",
             msg,
-            type(msg),
             r_stream,
             es_id,
         )
@@ -350,8 +352,23 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
         elif msg:
+            # The EventStream Service is permitted to append to the protobuf string
+            # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
+            # We know the AMQPMessage (as a string will start "b'" and end "'"
+            message_string = str(msg)[2:-1]
+            if message_string[0] != "{":
+                message_string += (
+                    f"|{message_context.offset}|{message_context.timestamp}"
+                )
+                patched_msg: AMQPMessage = AMQPMessage(
+                    body=bytes(message_string, "utf-8")
+                )
+            else:
+                patched_msg: AMQPMessage = AMQPMessage(
+                    body=bytes(message_string, "utf-8")
+                )
             try:
-                await websocket.send_text(msg.decode("utf-8"))
+                await websocket.send_text(str(patched_msg))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
