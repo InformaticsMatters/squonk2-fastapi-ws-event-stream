@@ -368,7 +368,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
                     body=bytes(message_string, "utf-8")
                 )
             try:
-                await websocket.send_text(str(patched_msg))
+                await websocket.send_text(str(patched_msg)[2:-1])
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True

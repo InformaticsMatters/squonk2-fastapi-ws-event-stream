@@ -22,7 +22,7 @@ def main(c_args: argparse.Namespace):
     try:
         while True:
             data = ws.receive()
-            print(type(data), str(data))
+            print(data)
     except (KeyboardInterrupt, EOFError, ConnectionClosed):
         ws.close()
 
