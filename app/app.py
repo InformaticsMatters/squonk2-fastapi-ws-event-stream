@@ -274,7 +274,7 @@ async def event_stream(
     await websocket.accept()
     _LOGGER.info("Accepted connection for %s", es_id)
 
-    _LOGGER.info(
+    _LOGGER.debug(
         "Creating Consumer for %s (%s:%s@%s/%s)...",
         es_id,
         _AMPQ_USERNAME,
@@ -289,6 +289,14 @@ async def event_stream(
         vhost=_AMPQ_VHOST,
         load_balancer_mode=True,
     )
+    if not await consumer.stream_exists(routing_key):
+        msg: str = f"EventStream {uuid} cannot be found"
+        _LOGGER.warning(msg)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=msg,
+        )
+
     _LOGGER.info("Consuming %s...", es_id)
     await _consume(
         consumer=consumer,
