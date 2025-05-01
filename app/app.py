@@ -346,7 +346,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info("Got msg='%s' stream=%s es_id=%s", msg, r_stream, es_id)
-        _LOGGER.debug(
+        _LOGGER.info(
             "With offset=%s timestamp=%s",
             message_context.offset,
             message_context.timestamp,
