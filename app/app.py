@@ -236,7 +236,7 @@ async def event_stream(
 
     if header_value_error:
         raise HTTPException(
-            status_code=status.HTTP_BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=header_value_error_msg,
         )
 
