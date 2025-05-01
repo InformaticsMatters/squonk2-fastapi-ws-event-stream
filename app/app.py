@@ -339,7 +339,6 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             r_stream,
             es_id,
         )
-        assert isinstance(msg, bytes)
         _LOGGER.info(
             "With offset=%s timestamp=%s",
             message_context.offset,
@@ -352,13 +351,6 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
         elif msg:
-            if not msg.startswith(b"{"):
-                # Add offset and timestamp to the end of the protobuf string.
-                # The EventStream Service is permitted to extend the string
-                # as long as it uses '|' as a delimiter and adds material at the end.
-                msg_str: str = msg.decode("utf-8")
-                msg_str += f"|{message_context.offset}|{message_context.timestamp}"
-                msg = msg_str.encode("utf-8")
             try:
                 await websocket.send_text(str(msg))
             except WebSocketDisconnect:
