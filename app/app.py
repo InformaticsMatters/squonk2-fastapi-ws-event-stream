@@ -391,7 +391,12 @@ async def _consume(
     """
     on_message = await generate_on_message_for_websocket(websocket, es_id)
 
-    _LOGGER.info("Starting consumer %s...", es_id)
+    _LOGGER.info(
+        "Starting consumer %s (offset type=%s offset=%s)...",
+        es_id,
+        offset_specification.offset_type.name,
+        offset_specification.offset,
+    )
     await consumer.start()
     _LOGGER.info("Subscribing %s...", es_id)
     await consumer.subscribe(
