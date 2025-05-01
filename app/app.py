@@ -361,14 +361,18 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             # Insert the Stream offset and timestamp.
             # The message is either a protobuf String or a JSON string.
             if decoded_msg[0] == "{":
-                # JSON string
+                # JSON string.
+                # An EventStreaming service is permitted to add any properties
+                # as long as it uses the prefix "ess_"
                 msg_dict = json.loads(decoded_msg)
-                msg_dict["offset"] = message_context.offset
-                msg_dict["timestamp"] = message_context.timestamp
+                msg_dict["ess_offset"] = message_context.offset
+                msg_dict["ess_timestamp"] = message_context.timestamp
                 decoded_msg = json.dumps(msg_dict)
             else:
-                # Protobuf String
-                decoded_msg = f"{message_context.offset}|{message_context.timestamp}|{decoded_msg}"
+                # An EventStreaming service is permitted to add any properties
+                # as long as it uses the separator "|" and places properties at the end
+                # of the received string.
+                decoded_msg = f"{decoded_msg}|{message_context.offset}|{message_context.timestamp}"
             try:
                 _LOGGER.debug("Sending msg for %s...", es_id)
                 await websocket.send_text(decoded_msg)
