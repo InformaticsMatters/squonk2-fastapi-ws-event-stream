@@ -340,7 +340,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             r_stream,
             es_id,
         )
-        _LOGGER.info(
+        _LOGGER.debug(
             "With offset=%s timestamp=%s",
             message_context.offset,
             message_context.timestamp,
