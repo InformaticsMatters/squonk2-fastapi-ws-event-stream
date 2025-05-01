@@ -21,7 +21,6 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from rstream import (
-    AMQPMessage,
     Consumer,
     ConsumerOffsetSpecification,
     MessageContext,
@@ -321,9 +320,10 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
     """
     assert websocket
 
-    async def on_message_for_websocket(
-        msg: AMQPMessage, message_context: MessageContext
-    ):
+    async def on_message_for_websocket(msg: bytes, message_context: MessageContext):
+        # The message is expected to be formed from an
+        # AMQPMessage generated in the AS using 'body=bytes(message_string, "utf-8")'
+        #
         # The MessageContext contains: -
         # - consumer: The Consumer object
         # - subscriber_name: str
@@ -332,8 +332,9 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info(
-            "Got msg='%s' stream=%s es_id=%s",
+            "Got msg='%s' (type=%s) stream=%s es_id=%s",
             msg,
+            type(msg),
             r_stream,
             es_id,
         )
@@ -350,7 +351,7 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
             shutdown = True
         elif msg:
             try:
-                await websocket.send_text(str(msg))
+                await websocket.send_text(msg.decode("utf-8"))
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
