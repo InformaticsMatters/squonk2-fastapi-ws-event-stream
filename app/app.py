@@ -376,9 +376,10 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
                 # as long as it uses the separator "|str()" and places properties at the end
                 # of the received string.
                 decoded_msg = f"{decoded_msg}|{message_context.offset}|{message_context.timestamp}|"
+            text = decoded_msg.encode("utf-8")
+            _LOGGER.info("Sending msg for %s (%s)...", es_id, text)
             try:
-                _LOGGER.debug("Sending msg for %s...", es_id)
-                await websocket.send_text(str(decoded_msg.encode("utf-8")))
+                await websocket.send_text(text)
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
