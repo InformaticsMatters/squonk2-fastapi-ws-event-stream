@@ -180,7 +180,6 @@ async def event_stream(
     before sending the poison pill.
     """
 
-    _LOGGER.info("Accepting connection (uuid=%s)...", uuid)
     await websocket.accept()
     _LOGGER.info("Accepted connection (uuid=%s)", uuid)
 
