@@ -269,14 +269,10 @@ async def event_stream(
     routing_key: str = es[2]
 
     _LOGGER.info(
-        "Creating Consumer for %s (uuid=%s) [%s] (%s:%s@%s/%s)...",
+        "Creating Consumer for %s (uuid=%s) [%s]...",
         es_id,
         uuid,
         routing_key,
-        _AMPQ_USERNAME,
-        _AMPQ_PASSWORD,
-        _AMPQ_HOSTNAME,
-        _AMPQ_VHOST,
     )
     consumer: Consumer = Consumer(
         _AMPQ_HOSTNAME,
@@ -418,7 +414,7 @@ async def _consume(
         await consumer.close()
         _LOGGER.info("Closed %s", es_id)
 
-    _LOGGER.info("Stopped consuming for %s", es_id)
+    _LOGGER.info("Stopped consuming %s", es_id)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
