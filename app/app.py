@@ -180,6 +180,10 @@ async def event_stream(
     before sending the poison pill.
     """
 
+    _LOGGER.info("Accepting connection (uuid=%s)...", uuid)
+    await websocket.accept()
+    _LOGGER.info("Accepted connection (uuid=%s)", uuid)
+
     # Custom request headers.
     # The following are used to identify the first event in a stream: -
     #
@@ -237,13 +241,14 @@ async def event_stream(
     # Replace any error with a 'too many values provided' error if necessary
     if num_stream_from_specified > 1:
         header_value_error = True
-        header_value_error_msg = "Cannot provide more than one X-StreamFrom value"
+        header_value_error_msg = "Cannot provide more than one X-StreamFrom variable"
 
     if header_value_error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=header_value_error_msg,
+        await websocket.close(
+            code=status.WS_1002_PROTOCOL_ERROR,
+            reason=header_value_error_msg,
         )
+        return
 
     # Get the DB record for this UUID...
     _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
@@ -255,28 +260,18 @@ async def event_stream(
     if not es:
         msg: str = f"Connect for unknown EventStream {uuid}"
         _LOGGER.warning(msg)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=msg,
-        )
+        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE, reason=msg)
+        return
 
     # Get the ID (for diagnostics)
     # and the routing key for the queue...
     es_id = es[0]
     routing_key: str = es[2]
 
-    _LOGGER.info(
-        "Waiting for 'accept' on stream %s (uuid=%s routing_key='%s')...",
-        es_id,
-        uuid,
-        routing_key,
-    )
-    await websocket.accept()
-    _LOGGER.info("Accepted connection for %s", es_id)
-
     _LOGGER.debug(
-        "Creating Consumer for %s (%s:%s@%s/%s)...",
+        "Creating Consumer for %s [%s] (%s:%s@%s/%s)...",
         es_id,
+        routing_key,
         _AMPQ_USERNAME,
         _AMPQ_PASSWORD,
         _AMPQ_HOSTNAME,
@@ -289,14 +284,17 @@ async def event_stream(
         vhost=_AMPQ_VHOST,
         load_balancer_mode=True,
     )
+    # Before continuing ... does the stream exist?
+    # If we don't check it now we'll fail later anyway.
+    # The AS is expected to create and delete the streams.
     if not await consumer.stream_exists(routing_key):
         msg: str = f"EventStream {uuid} cannot be found"
         _LOGGER.warning(msg)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=msg,
-        )
+        await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=msg)
+        return
 
+    # Start consuming the stream.
+    # We don't return from here until there's an error.
     _LOGGER.info("Consuming %s...", es_id)
     await _consume(
         consumer=consumer,
@@ -306,12 +304,11 @@ async def event_stream(
         offset_specification=offset_specification,
     )
 
+    # One our way out...
     await websocket.close(
         code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
     )
-    _LOGGER.info("Closed WebSocket for %s", es_id)
-
-    _LOGGER.info("Disconnected %s (uuid=%s)...", es_id, uuid)
+    _LOGGER.info("Closed WebSocket for %s (uuid=%s)", es_id, uuid)
 
 
 async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
@@ -347,7 +344,6 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         )
 
         shutdown: bool = False
-        #        decoded_msg: str = msg.decode(encoding="utf-8")
         if msg == b"POISON":
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
