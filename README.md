@@ -180,6 +180,35 @@ RabbitMQ Topic Queue.
 ## Version 2
 Version 2 uses the `rstream` package and relies on a RabbitMQ stream.
 
+Version 2 also extends messages prior to forwarding them to their socket clients.
+It does this by appending the messages's **offset** in the stream (an `integer`)
+and the message's **timestamp** (also an `integer`), both of which are provided by
+the backing RabbitMQ stream as the messages are received by the Event Stream's consumer.
+The **offset** can be used as a unique message identifier.
+
+When received as a protobuf string the values are appended to the end of the original
+message using `|` as a delimiter. Here is an example, with the message split at the
+delimiter for clarity: -
+
+    accountserver.MerchantProcessingCharge
+    |timestamp: "2025-04-30T19:20:37.926+00:00" merchant_kind: "DATA_MANAGER" [...]
+    |offset: 2
+    |timestamp: 1746042171620
+
+JSON strings will have these values added to the received dictionary using the
+keys `ess_offset` and `ess_timestamp`, again, displayed here over several lines
+for clarity: -
+
+    {
+        "ess_offset": 2,
+        "ess_timestamp": 1746042171620,
+        "message_type": "accountserver.MerchantProcessingCharge",
+        "message_body": {
+            "timestamp": "2025-04-30T19:20:37.926+00:00",
+            "merchant_kind": "DATA_MANAGER"
+        }
+    }
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable
