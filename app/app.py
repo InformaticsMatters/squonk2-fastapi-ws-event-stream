@@ -268,9 +268,10 @@ async def event_stream(
     es_id = es[0]
     routing_key: str = es[2]
 
-    _LOGGER.debug(
-        "Creating Consumer for %s [%s] (%s:%s@%s/%s)...",
+    _LOGGER.info(
+        "Creating Consumer for %s (uuid=%s) [%s] (%s:%s@%s/%s)...",
         es_id,
+        uuid,
         routing_key,
         _AMPQ_USERNAME,
         _AMPQ_PASSWORD,
@@ -295,7 +296,7 @@ async def event_stream(
 
     # Start consuming the stream.
     # We don't return from here until there's an error.
-    _LOGGER.info("Consuming %s...", es_id)
+    _LOGGER.debug("Consuming %s...", es_id)
     await _consume(
         consumer=consumer,
         stream_name=routing_key,
