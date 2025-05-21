@@ -328,16 +328,16 @@ async def event_stream(
     # on the next message and should shut itself down.
     new_socket_uuid: str = python_uuid.uuid4()
     _LOGGER.info(
-        "Assigning unique WebSocket ID (%s) for %s (routing_key=%s uuid=%s)",
-        es_id,
+        "Assigning unique ID %s for this connection (id=%s routing_key=%s uuid=%s)",
         new_socket_uuid,
+        es_id,
         es_routing_key,
         uuid,
     )
     existing_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key).decode("utf-8")
     if existing_socket_uuid and existing_socket_uuid != new_socket_uuid:
         _LOGGER.warning(
-            "Replacing existing WebSocket unique ID (%s) with ours (id=%s)",
+            "Replacing existing connection ID %s with ours (id=%s)",
             existing_socket_uuid,
             es_id,
         )
