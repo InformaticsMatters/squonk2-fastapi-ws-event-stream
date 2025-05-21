@@ -137,11 +137,10 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
         routing_key: str = _ES[2]
         ess_uuid: str = _ES[1]
         _LOGGER.info(
-            "Existing EventStream: %s (id=%s routing_key=%s uuid=%s)",
+            "Existing EventStream: %s (id=%s routing_key=%s)",
             _get_location(_ES[1]),
             _ES[0],
             routing_key,
-            ess_uuid,
         )
         _MEMCACHED_CLIENT.set(routing_key, ess_uuid)
 
