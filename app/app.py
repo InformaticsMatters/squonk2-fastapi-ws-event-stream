@@ -87,7 +87,6 @@ _MEMCACHED_CLIENT: RetryingClient = RetryingClient(
     retry_delay=0.01,
     retry_for=[MemcacheUnexpectedCloseError],
 )
-_LOGGER.info("memcached version=%s", _MEMCACHED_CLIENT.version())
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -124,6 +123,8 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.commit()
     _DB_CONNECTION.close()
     _LOGGER.info("Created (or exists)")
+
+    _LOGGER.info("Memcached version=%s", _MEMCACHED_CLIENT.version().decode("utf-8"))
 
     # List existing event streams
     # and ensure the memcached cache reflects this...
