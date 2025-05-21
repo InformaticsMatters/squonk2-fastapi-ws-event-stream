@@ -137,10 +137,11 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
         routing_key: str = _ES[2]
         ess_uuid: str = _ES[1]
         _LOGGER.info(
-            "Existing EventStream: %s (id=%s routing_key='%s')",
+            "Existing EventStream: %s (id=%s routing_key=%s uuid=%s)",
             _get_location(_ES[1]),
-            ess_uuid,
+            _ES[0],
             routing_key,
+            ess_uuid,
         )
         _MEMCACHED_CLIENT.set(routing_key, ess_uuid)
 
@@ -502,7 +503,7 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     # we just need to provide a UUID and the routing key.
     es_routing_key: str = request_body.routing_key
     _LOGGER.info(
-        "Creating new event stream %s (routing_key='%s')...", uuid_str, es_routing_key
+        "Creating new event stream %s (routing_key=%s)...", uuid_str, es_routing_key
     )
 
     db = sqlite3.connect(_DATABASE_PATH)
@@ -515,7 +516,7 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     if not es:
         msg: str = (
             f"Failed to get new EventStream record ID for {uuid_str}"
-            f" (routing_key='{es_routing_key}')"
+            f" (routing_key={es_routing_key})"
         )
         _LOGGER.error(msg)
         raise HTTPException(
@@ -595,10 +596,10 @@ def delete_es(es_id: int):
 
     es_routing_key: str = es[2]
     _LOGGER.info(
-        "Deleting event stream %s (uuid=%s routing_key='%s')",
+        "Deleting event stream %s (routing_key=%s uuid=%s)",
         es_id,
-        es[1],
         es_routing_key,
+        es[1],
     )
 
     # Clear the memcached value of this routing key.
