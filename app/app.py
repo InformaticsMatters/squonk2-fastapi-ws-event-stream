@@ -20,7 +20,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel
-from pymemcache.client.base import Client
+from pymemcache.client.base import Client, KeepaliveOpts
 from pymemcache.client.retrying import RetryingClient
 from pymemcache.exceptions import MemcacheUnexpectedCloseError
 from rstream import (
@@ -73,8 +73,13 @@ else:
 # The location is either a host ("localhost")
 # or host and port if the port is not the expected default of 11211 ("localhost:1234")
 _MEMCACHED_LOCATION: str = os.getenv("ESS_MEMCACHED_LOCATION", "localhost")
+_MEMCACHED_KEEPALIVE: KeepaliveOpts = KeepaliveOpts(idle=35, intvl=8, cnt=5)
 _MEMCACHED_BASE_CLIENT: Client = Client(
-    _MEMCACHED_LOCATION, connect_timeout=4, timeout=0.5
+    _MEMCACHED_LOCATION,
+    connect_timeout=4,
+    encoding="utf-8",
+    timeout=0.5,
+    socket_keepalive=_MEMCACHED_KEEPALIVE,
 )
 _MEMCACHED_CLIENT: RetryingClient = RetryingClient(
     _MEMCACHED_BASE_CLIENT,
@@ -82,6 +87,7 @@ _MEMCACHED_CLIENT: RetryingClient = RetryingClient(
     retry_delay=0.01,
     retry_for=[MemcacheUnexpectedCloseError],
 )
+_LOGGER.info("memcached version=%s", _MEMCACHED_CLIENT.version())
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -120,18 +126,22 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _LOGGER.info("Created (or exists)")
 
     # List existing event streams
+    # and ensure the memcached cache reflects this...
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
     _RES = _CUR.execute("SELECT * FROM es")
     _EVENT_STREAMS = _RES.fetchall()
     _DB_CONNECTION.close()
     for _ES in _EVENT_STREAMS:
+        routing_key: str = _ES[2]
+        ess_uuid: str = _ES[1]
         _LOGGER.info(
             "Existing EventStream: %s (id=%s routing_key='%s')",
             _get_location(_ES[1]),
-            _ES[0],
-            _ES[2],
+            ess_uuid,
+            routing_key,
         )
+        _MEMCACHED_CLIENT.set(routing_key, ess_uuid)
 
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.
@@ -282,13 +292,13 @@ async def event_stream(
     # Get the ID (for diagnostics)
     # and the routing key for the queue...
     es_id = es[0]
-    routing_key: str = es[2]
+    es_routing_key: str = es[2]
 
     _LOGGER.info(
         "Creating Consumer for %s (uuid=%s) [%s]...",
         es_id,
         uuid,
-        routing_key,
+        es_routing_key,
     )
     consumer: Consumer = Consumer(
         _AMPQ_HOSTNAME,
@@ -300,7 +310,7 @@ async def event_stream(
     # Before continuing ... does the stream exist?
     # If we don't check it now we'll fail later anyway.
     # The AS is expected to create and delete the streams.
-    if not await consumer.stream_exists(routing_key):
+    if not await consumer.stream_exists(es_routing_key):
         msg: str = f"EventStream {uuid} cannot be found"
         _LOGGER.warning(msg)
         await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=msg)
@@ -311,7 +321,7 @@ async def event_stream(
     _LOGGER.debug("Consuming %s...", es_id)
     await _consume(
         consumer=consumer,
-        stream_name=routing_key,
+        stream_name=es_routing_key,
         es_id=es_id,
         websocket=websocket,
         offset_specification=offset_specification,
@@ -464,21 +474,22 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     # Create a new ES record.
     # An ID is assigned automatically -
     # we just need to provide a UUID and the routing key.
-    routing_key: str = request_body.routing_key
+    es_routing_key: str = request_body.routing_key
     _LOGGER.info(
-        "Creating new event stream %s (routing_key='%s')...", uuid_str, routing_key
+        "Creating new event stream %s (routing_key='%s')...", uuid_str, es_routing_key
     )
 
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
-    cursor.execute(f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{routing_key}')")
+    cursor.execute(f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{es_routing_key}')")
     db.commit()
     # Now pull the record back to get the assigned record ID...
     es = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid_str}'").fetchone()
     db.close()
     if not es:
         msg: str = (
-            f"Failed to get new EventStream record ID for {uuid_str} (routing_key='{routing_key}')"
+            f"Failed to get new EventStream record ID for {uuid_str}"
+            f" (routing_key='{es_routing_key}')"
         )
         _LOGGER.error(msg)
         raise HTTPException(
@@ -498,8 +509,8 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     # This might 'knock-out' a previous stream registered against that key.
     # That's fine - the asyncio process will notice this on the next message
     # and will kill itself.
-    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.set(routing_key)
-    if existing_routing_key_uuid != uuid_str:
+    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.get(routing_key)
+    if existing_routing_key_uuid and existing_routing_key_uuid != uuid_str:
         _LOGGER.warning(
             "Replaced routing key %s UUID (%s) with ours (%s)",
             routing_key,
@@ -556,15 +567,18 @@ def delete_es(es_id: int):
             detail=msg,
         )
 
-    routing_key: str = es[2]
+    es_routing_key: str = es[2]
     _LOGGER.info(
-        "Deleting event stream %s (uuid=%s routing_key='%s')", es_id, es[1], routing_key
+        "Deleting event stream %s (uuid=%s routing_key='%s')",
+        es_id,
+        es[1],
+        es_routing_key,
     )
 
     # Clear the memcached value of this routing key.
     # Any asyncio process using this routing key
     # will notice this and kill itself (at some point)
-    _MEMCACHED_CLIENT.delete(routing_key)
+    _MEMCACHED_CLIENT.delete(es_routing_key)
 
     # Delete the ES record...
     # This will prevent any further connections.
