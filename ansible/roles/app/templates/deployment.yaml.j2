@@ -50,8 +50,6 @@ spec:
           value: '{{ ess_memcached_max_connections }}'
         - name: MEMCACHED_MAX_ITEM_SIZE
           value: '22'
-        - name: MEMCACHED_EXTRA_FLAGS
-          value: '-v'
         - name: MEMCACHED_MEMORY_LIMIT
           value: '{{ ess_memcached_memory_limit }}'
         resources:
