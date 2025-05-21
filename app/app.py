@@ -324,6 +324,8 @@ async def event_stream(
         consumer=consumer,
         stream_name=es_routing_key,
         es_id=es_id,
+        es_routing_key=es_routing_key,
+        es_uuid=uuid,
         websocket=websocket,
         offset_specification=offset_specification,
     )
@@ -335,12 +337,17 @@ async def event_stream(
     _LOGGER.info("Closed WebSocket for %s (uuid=%s)", es_id, uuid)
 
 
-async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
+async def generate_on_message_for_websocket(
+    websocket: WebSocket, es_id: str, es_routing_key: str, es_uuid: str
+):
     """Here we use "currying" to append pre-set parameters
-    to a function that wil be used as the stream consumer message callback handler.
+    to a function that will be used as the stream consumer message callback handler.
     We need the callback to 'know' the WebSocket and (for diagnostics) the ES ID
     """
     assert websocket
+    assert es_id
+    assert es_routing_key
+    assert es_uuid
 
     async def on_message_for_websocket(
         msg: AMQPMessage, message_context: MessageContext
@@ -368,7 +375,21 @@ async def generate_on_message_for_websocket(websocket: WebSocket, es_id: str):
         )
 
         shutdown: bool = False
-        if msg == b"POISON":
+        # We shutdown if...
+        # 1. we are no longer the source of events fo the stream
+        #    (e.g. our UUID is not the value of the cached routing key im memcached).
+        #    This typically means we've been replaced by a new stream.
+        # 2. We get a POISON message
+        stream_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
+        if stream_uuid != es_uuid:
+            _LOGGER.info(
+                "There is a new owner of %s (uuid=%s). It is not me (uuid=%s) (stopping)...",
+                es_id,
+                stream_uuid,
+                es_uuid,
+            )
+            shutdown = True
+        elif msg == b"POISON":
             _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
             shutdown = True
         elif msg:
@@ -406,13 +427,17 @@ async def _consume(
     consumer: Consumer,
     stream_name: str,
     es_id: str,
+    es_routing_key: str,
+    es_uuid: str,
     websocket: WebSocket,
     offset_specification: ConsumerOffsetSpecification,
 ):
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    on_message = await generate_on_message_for_websocket(websocket, es_id)
+    on_message = await generate_on_message_for_websocket(
+        websocket, es_id, es_routing_key, es_uuid
+    )
 
     _LOGGER.info(
         "Starting consumer %s (offset type=%s offset=%s)...",
