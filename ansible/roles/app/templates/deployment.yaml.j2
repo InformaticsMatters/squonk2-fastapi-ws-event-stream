@@ -113,6 +113,32 @@ spec:
 {% endif %}
 {% endif %}
 
+      - name: memcached
+        image: memcached:{{ ess_memcached_tag }}
+        ports:
+        - containerPort: 11211
+          name: memcached
+        env:
+        - name: MEMCACHED_MAX_CONNECTIONS
+          value: '{{ ess_memcached_max_connections }}'
+        - name: MEMCACHED_MAX_ITEM_SIZE
+          value: '36'
+        - name: MEMCACHED_MEMORY_LIMIT
+          value: '{{ ess_memcached_memory_limit }}'
+        resources:
+          requests:
+            cpu: {{ ess_memcached_cpu_request }}
+            memory: {{ ess_memcached_mem_request }}
+{% if ess_memcached_cpu_limit or ess_memcached_mem_limit %}
+          limits:
+{% if ess_memcached_cpu_limit %}
+            cpu: {{ ess_memcached_cpu_limit }}
+{% endif %}
+{% if ess_memcached_mem_limit %}
+            memory: {{ ess_memcached_mem_limit }}
+{% endif %}
+{% endif %}
+
       volumes:
       - name: database
         persistentVolumeClaim:

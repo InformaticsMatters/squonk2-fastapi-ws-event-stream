@@ -173,6 +173,69 @@ by the client using the command: -
     the one used by RabbitMQ in the docker-compose file. If you need to change this
     you can provide a different AMPQ URL as a 2nd argument on the command line.
 
+## Version 1
+Version 1 uses the `pika` package and relies on a classic exchange-based
+RabbitMQ Topic Queue.
+
+## Version 2
+Version 2 uses the `rstream` package and relies on a RabbitMQ stream.
+
+Version 2 also extends messages prior to forwarding them to their socket clients.
+It does this by appending the messages's **offset** in the stream (an `integer`,
+which we refer to as an **ordinal**)), and the message's **timestamp** (also an `integer`),
+both of which are provided by the backing RabbitMQ stream as the messages are received
+by the Event Stream's consumer. The **offset** can be used as a unique message identifier.
+
+When received as a protobuf string the values are appended to the end of the original
+message using `|` as a delimiter. Here is an example, with the message split at the
+delimiter for clarity: -
+
+    accountserver.MerchantProcessingCharge
+    |timestamp: "2025-04-30T19:20:37.926+00:00" merchant_kind: "DATA_MANAGER" [...]
+    |offset: 2
+    |timestamp: 1746042171620
+
+JSON strings will have these values added to the received dictionary using the
+keys `ess_offset` and `ess_timestamp`, again, displayed here over several lines
+for clarity: -
+
+    {
+        "ess_offset": 2,
+        "ess_timestamp": 1746042171620,
+        "message_type": "accountserver.MerchantProcessingCharge",
+        "message_body": {
+            "timestamp": "2025-04-30T19:20:37.926+00:00",
+            "merchant_kind": "DATA_MANAGER"
+        }
+    }
+
+## Connecting to sockets (historical events)
+The streaming service keeps historical events based on a maximum age and file size.
+Consequently you can connect to your websocket and retrieve these historical events
+as long as they remain in the backend streaming queue. You identify the
+start-time of your events by using **headers** in the websocket request for your
+stream's **LOCATION**.
+
+If you do not provide any header value your socket will only deliver new events.
+
+You can select the start of your events buy providing either an **ordinal**,
+**timestamp**, or **datetime** string.
+
+To stream from a specific **ordinal** (**offset**), provide it as the numerical value
+of the header property `X-StreamOffsetFromOrdinal`.
+
+To stream from a specific **timestamp**, provide it as the numerical value
+of the header property `X-StreamOffsetFromTimestamp`.
+
+To stream from a specific **datetime**, provide the date/time string as the value
+of the header property `X-StreamOffsetFromDatetime`. The datetime string is extremely
+flexible and is interpreted by the **python-dateutil** package's `parse` function.
+UTC is used as the reference for messages and the string will be interpreted as a
+UTC value if it has no timezone specification. For example, if you are in CEST and
+it is `13:33` and you want to retrieve times from 13:33 (local time) then you will need
+to provide a **datetime** string value that has the time set to
+`11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable

@@ -4,13 +4,35 @@ import json
 import logging
 import os
 import sqlite3
+import time
+import uuid as python_uuid
 from logging.config import dictConfig
-from typing import Any
+from typing import Annotated, Any
+from urllib.parse import ParseResult, urlparse
 
-import aio_pika
 import shortuuid
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from dateutil.parser import parse
+from fastapi import (
+    FastAPI,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from pydantic import BaseModel
+from pymemcache.client.base import Client, KeepaliveOpts
+from pymemcache.client.retrying import RetryingClient
+from pymemcache.exceptions import MemcacheUnexpectedCloseError
+from rstream import (
+    AMQPMessage,
+    Consumer,
+    ConsumerOffsetSpecification,
+    MessageContext,
+    OffsetType,
+    amqp_decoder,
+)
+from rstream.exceptions import StreamDoesNotExist
 
 # Configure logging
 print("Configuring logging...")
@@ -34,9 +56,38 @@ _INGRESS_LOCATION: str = os.getenv("ESS_INGRESS_LOCATION", "localhost:8080")
 assert _INGRESS_LOCATION, "ESS_INGRESS_LOCATION environment variable must be set"
 _INGRESS_SECURE: bool = os.getenv("ESS_INGRESS_SECURE", "no").lower() == "yes"
 
-_AMPQ_EXCHANGE: str = "event-streams"
 _AMPQ_URL: str = os.getenv("ESS_AMPQ_URL", "")
 assert _AMPQ_URL, "ESS_AMPQ_URL environment variable must be set"
+
+_PARSED_AMPQ_URL: ParseResult = urlparse(_AMPQ_URL)
+_AMPQ_HOSTNAME: str | None = _PARSED_AMPQ_URL.hostname
+_AMPQ_USERNAME: str | None = _PARSED_AMPQ_URL.username
+_AMPQ_PASSWORD: str | None = _PARSED_AMPQ_URL.password
+# The URL path will be something like '/as'.
+# The vhost we need here is 'as'...
+if len(_PARSED_AMPQ_URL.path) > 1:
+    _AMPQ_VHOST: str = _PARSED_AMPQ_URL.path[1:]
+else:
+    _AMPQ_VHOST = "/"
+
+# Configure memcached (routing key to ESS UUID map)
+# The location is either a host ("localhost")
+# or host and port if the port is not the expected default of 11211 ("localhost:1234")
+_MEMCACHED_LOCATION: str = os.getenv("ESS_MEMCACHED_LOCATION", "localhost")
+_MEMCACHED_KEEPALIVE: KeepaliveOpts = KeepaliveOpts(idle=35, intvl=8, cnt=5)
+_MEMCACHED_BASE_CLIENT: Client = Client(
+    _MEMCACHED_LOCATION,
+    connect_timeout=4,
+    encoding="utf-8",
+    timeout=0.5,
+    socket_keepalive=_MEMCACHED_KEEPALIVE,
+)
+_MEMCACHED_CLIENT: RetryingClient = RetryingClient(
+    _MEMCACHED_BASE_CLIENT,
+    attempts=3,
+    retry_delay=0.01,
+    retry_for=[MemcacheUnexpectedCloseError],
+)
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -55,7 +106,6 @@ def _get_location(uuid: str) -> str:
 # Logic specific to the 'internal API' process
 if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     # Display configuration
-    _LOGGER.info("AMPQ_EXCHANGE: %s", _AMPQ_EXCHANGE)
     _LOGGER.info("AMPQ_URL: %s", _AMPQ_URL)
     _LOGGER.info("DATABASE_PATH: %s", _DATABASE_PATH)
     _LOGGER.info("INGRESS_LOCATION: %s", _INGRESS_LOCATION)
@@ -64,7 +114,7 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     # Create the database.
     # A table to record allocated Event Streams.
     # The table 'id' is an INTEGER PRIMARY KEY and so becomes an auto-incrementing
-    # value when NONE is passed in as it's value.
+    # value when NONE is passed in as its value.
     _LOGGER.info("Creating SQLite database (if not present)...")
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
@@ -75,6 +125,8 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.close()
     _LOGGER.info("Created (or exists)")
 
+    _LOGGER.info("Memcached version=%s", _MEMCACHED_CLIENT.version().decode("utf-8"))
+
     # List existing event streams
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
@@ -83,7 +135,7 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _DB_CONNECTION.close()
     for _ES in _EVENT_STREAMS:
         _LOGGER.info(
-            "Existing EventStream: %s (id=%s routing_key='%s')",
+            "Existing EventStream: %s (id=%s routing_key=%s)",
             _get_location(_ES[1]),
             _ES[0],
             _ES[2],
@@ -135,16 +187,92 @@ class EventStreamGetResponse(BaseModel):
 
 
 @app_public.websocket("/event-stream/{uuid}")
-async def event_stream(websocket: WebSocket, uuid: str):
+async def event_stream(
+    websocket: WebSocket,
+    uuid: str,
+    x_streamfromdatetime: Annotated[str | None, Header()] = None,
+    x_streamfromordinal: Annotated[str | None, Header()] = None,
+    x_streamfromtimestamp: Annotated[str | None, Header()] = None,
+):
     """The websocket handler for the event-stream.
     The UUID is returned to the AS when the web-socket is created
     using a POST to /event-stream/.
 
     The socket will close if a 'POISON' message is received.
     The AS will insert one of these into the stream after it is has been closed.
-    i.e. the API will call us to close the connection (removing the record from our DB)
+    i.e. the API will call us to close the connection after it has removed
+    the record from its DB and our DB (by calling our delete_es() API method)
     before sending the poison pill.
     """
+
+    await websocket.accept()
+    _LOGGER.info("Accepted connection (uuid=%s)", uuid)
+
+    # Custom request headers.
+    # The following are used to identify the first event in a stream: -
+    #
+    #   X-StreamFromDatetime - an ISO8601 date/time string
+    #   X-StreamFromTimestamp - an event timestamp (integer) from a prior message
+    #   X-StreamFromOrdinal - a message ordinal (integer 0..N)
+    #
+    # Only one of the above is expected.
+    num_stream_from_specified: int = 0
+    header_value_error: bool = False
+    header_value_error_msg: str = ""
+    # Ultimately we set this object...
+    offset_specification: ConsumerOffsetSpecification = ConsumerOffsetSpecification(
+        OffsetType.NEXT
+    )
+    # Was a streaming offset provided?
+    if x_streamfromdatetime:
+        num_stream_from_specified += 1
+        try:
+            _LOGGER.info("X-StreamFromDatetime=%s", x_streamfromdatetime)
+            from_datetime = parse(x_streamfromdatetime)
+            # We need a RabbitMQ stream timestamp,
+            # which is milliseconds since the universal time epoch (1 Jan, 1970).
+            # It's easy to get 'seconds', which we multiply by 1,000
+            datetime_timestamp = int(time.mktime(from_datetime.timetuple())) * 1_000
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.TIMESTAMP, datetime_timestamp
+            )
+        except:  # pylint: disable=bare-except
+            header_value_error = True
+            header_value_error_msg = "Unable to parse X-StreamFromDatetime value"
+    if x_streamfromordinal:
+        _LOGGER.info("X-StreamFromOrdinal=%s", x_streamfromordinal)
+        num_stream_from_specified += 1
+        try:
+            from_ordinal = int(x_streamfromordinal)
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.OFFSET, from_ordinal
+            )
+        except ValueError:
+            header_value_error = True
+            header_value_error_msg = "X-StreamFromOrdinal must be an integer"
+    if x_streamfromtimestamp:
+        _LOGGER.info("X-StreamFromTimestamp=%s", x_streamfromtimestamp)
+        num_stream_from_specified += 1
+        try:
+            from_timestamp = int(x_streamfromtimestamp)
+            offset_specification = ConsumerOffsetSpecification(
+                OffsetType.TIMESTAMP, from_timestamp
+            )
+        except ValueError:
+            header_value_error = True
+            header_value_error_msg = "X-StreamFromTimestamp must be an integer"
+
+    # Replace any error with a 'too many values provided' error if necessary
+    if num_stream_from_specified > 1:
+        header_value_error = True
+        header_value_error_msg = "Cannot provide more than one X-StreamFrom variable"
+
+    if header_value_error:
+        await websocket.close(
+            code=status.WS_1002_PROTOCOL_ERROR,
+            reason=header_value_error_msg,
+        )
+        return
 
     # Get the DB record for this UUID...
     _LOGGER.debug("Connect attempt (uuid=%s)...", uuid)
@@ -156,83 +284,218 @@ async def event_stream(websocket: WebSocket, uuid: str):
     if not es:
         msg: str = f"Connect for unknown EventStream {uuid}"
         _LOGGER.warning(msg)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=msg,
-        )
+        await websocket.close(code=status.WS_1000_NORMAL_CLOSURE, reason=msg)
+        return
 
     # Get the ID (for diagnostics)
     # and the routing key for the queue...
     es_id = es[0]
-    routing_key: str = es[2]
+    es_routing_key: str = es[2]
 
-    _LOGGER.debug(
-        "Waiting for 'accept' on stream %s (uuid=%s routing_key='%s')...",
+    _LOGGER.info(
+        "Creating Consumer for %s (uuid=%s) [%s]...",
         es_id,
         uuid,
-        routing_key,
+        es_routing_key,
     )
-    await websocket.accept()
-    _LOGGER.info("Accepted connection for %s", es_id)
-
-    _LOGGER.debug("Creating reader for %s...", es_id)
-    message_reader = _get_from_queue(routing_key)
-
-    _LOGGER.debug(
-        "Reading messages for %s (message_reader=%s)...", es_id, message_reader
+    consumer: Consumer = Consumer(
+        _AMPQ_HOSTNAME,
+        username=_AMPQ_USERNAME,
+        password=_AMPQ_PASSWORD,
+        vhost=_AMPQ_VHOST,
+        load_balancer_mode=True,
     )
-    _connected: bool = True
-    while _connected:
-        _LOGGER.debug("Calling anext() for %s...", es_id)
-        reader = anext(message_reader)
-        message_body = await reader
-        if message_body:
-            if message_body == b"POISON":
-                _LOGGER.info("Taking POISON for %s (%s) (closing)...", es_id, uuid)
-                break
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                message_class: str = message_body.decode("utf-8").split("|", 1)[0]
-                _LOGGER.debug(
-                    "Got AS message for %s (message_class=%s)", es_id, message_class
-                )
-            try:
-                await websocket.send_text(message_body)
-            except WebSocketDisconnect:
-                _LOGGER.info(
-                    "Got WebSocketDisconnect for %s (%s) (leaving)...", es_id, uuid
-                )
-                _connected = False
+    # Before continuing ... does the stream exist?
+    # If we don't check it now we'll fail later anyway.
+    # The AS is expected to create and delete the streams.
+    if not await consumer.stream_exists(es_routing_key):
+        msg: str = f"EventStream {uuid} cannot be found"
+        _LOGGER.warning(msg)
+        await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=msg)
+        return
 
-    if _connected:
-        _LOGGER.info("Closing %s (uuid=%s)...", es_id, uuid)
+    # We use the memcached service to record this connection against the routing key.
+    # we create a new unique ID for this call and set it as the value for the stream
+    # using the routing key as a memcached key.
+    #
+    # There may be multiple WebSocket calls for this event stream but we must restrict
+    # ourselves to just one. Streams (against the same routing key) check memcached
+    # on message retrieval to determine whether they need to shutdown or not.
+    #
+    # Simply set a new value for the memcached key (the routing key).
+    # This might 'knock-out' a previous socket using that key.
+    # That's fine - the on_message_for_websocket() function will notice this
+    # on the next message and should shut itself down.
+    new_socket_uuid: str = str(python_uuid.uuid4())
+    _LOGGER.info("Assigning connection ID %s to %s...", new_socket_uuid, es_id)
+    existing_socket_uuid: bytes = _MEMCACHED_CLIENT.get(es_routing_key)
+    if existing_socket_uuid and existing_socket_uuid.decode("utf-8") != new_socket_uuid:
+        _LOGGER.warning("Replacing existing connection ID with ours for %s", es_id)
+    _MEMCACHED_CLIENT.set(es_routing_key, new_socket_uuid)
+
+    # Start consuming the stream.
+    # We don't return from here until there's an error.
+    _LOGGER.debug("Consuming %s...", es_id)
+    await _consume(
+        consumer,
+        es_id=es_id,
+        es_routing_key=es_routing_key,
+        es_websocket_uuid=new_socket_uuid,
+        websocket=websocket,
+        offset_specification=offset_specification,
+    )
+
+    # On our way out...
+    try:
         await websocket.close(
             code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
         )
-        _LOGGER.info("Closed %s", es_id)
+    except RuntimeError:
+        # There's a chance we encounter a RuntimeError
+        # with the message 'RuntimeError: Cannot call "send" once a close message has been sent.'
+        # We don't care - we have to just get out of here
+        # so errors in tear-down have to be ignored,
+        # and there's no apparent way to know whether calling 'close()' is safe.
+        _LOGGER.debug("Ignoring RuntimeError from close() for %s", es_id)
 
-    _LOGGER.info("Disconnected %s (uuid=%s)...", es_id, uuid)
+    _LOGGER.info("Closed WebSocket for %s (uuid=%s)", es_id, uuid)
 
 
-async def _get_from_queue(routing_key: str):
+async def generate_on_message_for_websocket(
+    websocket: WebSocket, *, es_id: str, es_routing_key: str, es_websocket_uuid: str
+):
+    """Here we use "currying" to append pre-set parameters
+    to a function that will be used as the stream consumer message callback handler.
+    We need the callback to 'know' the WebSocket and (for diagnostics) the ES ID
+    """
+    assert websocket
+    assert es_id
+    assert es_routing_key
+    assert es_websocket_uuid
+
+    async def on_message_for_websocket(
+        msg: AMQPMessage, message_context: MessageContext
+    ):
+        # The message is expected to be formed from an
+        # AMQPMessage generated in the AS using 'body=bytes(message_string, "utf-8")'
+        #
+        # The MessageContext contains: -
+        # - consumer: The Consumer object
+        # - subscriber_name: str
+        # - offset: int (numerical offset in the stream 0..N)
+        # - timestamp: int (milliseconds since Python time epoch)
+        #              It's essentially time.time() x 1000
+        r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
+        _LOGGER.info(
+            "Got msg='%s' stream=%s es_id=%s",
+            msg,
+            r_stream,
+            es_id,
+        )
+        _LOGGER.debug(
+            "With offset=%s timestamp=%s",
+            message_context.offset,
+            message_context.timestamp,
+        )
+
+        shutdown: bool = False
+        # We shutdown if...
+        # 1. we are no longer the source of events fo the stream
+        #    (e.g. our UUID is not the value of the cached routing key im memcached).
+        #    This typically means we've been replaced by a new stream.
+        # 2. We get a POISON message
+        stream_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
+        if not stream_socket_uuid:
+            _LOGGER.info("There is no connection ID for %s (stopping)...", es_id)
+            shutdown = True
+        elif stream_socket_uuid.decode("utf-8") != es_websocket_uuid:
+            _LOGGER.info(
+                "There is a new consumer of %s (%s), and it is not us (%s) (stopping)...",
+                es_id,
+                stream_socket_uuid.decode("utf-8"),
+                es_websocket_uuid,
+            )
+            shutdown = True
+        elif msg == b"POISON":
+            _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
+            shutdown = True
+        elif msg:
+            # We know the AMQPMessage (as a string will start "b'" and end "'"
+            message_string = str(msg)[2:-1]
+            if message_string[0] != "{":
+                # The EventStream Service is permitted to append to the protobuf string
+                # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
+                message_string += f"|offset: {message_context.offset}"
+                message_string += f"|timestamp: {message_context.timestamp}"
+            else:
+                # The EventStream Service is permitted to append to the JSON string
+                # as long as it uses keys with the prefix "ess_"
+                msg_dict: dict[str, Any] = json.loads(message_string)
+                msg_dict["ess_offset"] = message_context.offset
+                msg_dict["ess_timestamp"] = message_context.timestamp
+                message_string = json.dumps(msg_dict)
+            try:
+                await websocket.send_text(message_string)
+            except WebSocketDisconnect:
+                _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
+                shutdown = True
+
+        _LOGGER.debug("Handled msg for %s...", es_id)
+
+        if shutdown:
+            _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
+            message_context.consumer.stop()
+
+    return on_message_for_websocket
+
+
+async def _consume(
+    consumer: Consumer,
+    *,
+    es_id: str,
+    es_routing_key: str,
+    es_websocket_uuid: str,
+    websocket: WebSocket,
+    offset_specification: ConsumerOffsetSpecification,
+):
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    connection = await aio_pika.connect_robust(_AMPQ_URL)
+    on_message = await generate_on_message_for_websocket(
+        websocket,
+        es_id=es_id,
+        es_routing_key=es_routing_key,
+        es_websocket_uuid=es_websocket_uuid,
+    )
 
-    async with connection:
-        channel = await connection.channel()
-        es_exchange: aio_pika.AbstractExchange = await channel.declare_exchange(
-            _AMPQ_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
+    _LOGGER.info(
+        "Starting consumer %s (offset type=%s offset=%s)...",
+        es_id,
+        offset_specification.offset_type.name,
+        offset_specification.offset,
+    )
+    await consumer.start()
+    _LOGGER.info("Subscribing %s...", es_id)
+    subscribed: bool = True
+    try:
+        await consumer.subscribe(
+            stream=es_routing_key,
+            callback=on_message,
+            decoder=amqp_decoder,
+            offset_specification=offset_specification,
         )
-        queue = await channel.declare_queue(
-            auto_delete=True, durable=True, exclusive=True
-        )
-        await queue.bind(es_exchange, routing_key)
+    except StreamDoesNotExist:
+        _LOGGER.warning("Stream '%s' for %s does not exist", es_routing_key, es_id)
+        subscribed = False
 
-        async with queue.iterator() as queue_iter:
-            async for message in queue_iter:
-                async with message.process():
-                    yield message.body
+    if subscribed:
+        _LOGGER.info("Running %s...", es_id)
+        await consumer.run()
+        _LOGGER.info("Stopped %s (closing)...", es_id)
+        await consumer.close()
+        _LOGGER.info("Closed %s", es_id)
+
+    _LOGGER.info("Stopped consuming %s", es_id)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
@@ -266,21 +529,22 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
     # Create a new ES record.
     # An ID is assigned automatically -
     # we just need to provide a UUID and the routing key.
-    routing_key: str = request_body.routing_key
+    es_routing_key: str = request_body.routing_key
     _LOGGER.info(
-        "Creating new event stream %s (routing_key='%s')...", uuid_str, routing_key
+        "Creating new event stream %s (routing_key=%s)...", uuid_str, es_routing_key
     )
 
     db = sqlite3.connect(_DATABASE_PATH)
     cursor = db.cursor()
-    cursor.execute(f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{routing_key}')")
+    cursor.execute(f"INSERT INTO es VALUES (NULL, '{uuid_str}', '{es_routing_key}')")
     db.commit()
     # Now pull the record back to get the assigned record ID...
     es = cursor.execute(f"SELECT * FROM es WHERE uuid='{uuid_str}'").fetchone()
     db.close()
     if not es:
         msg: str = (
-            f"Failed to get new EventStream record ID for {uuid_str} (routing_key='{routing_key}')"
+            f"Failed to get new EventStream record ID for {uuid_str}"
+            f" (routing_key={es_routing_key})"
         )
         _LOGGER.error(msg)
         raise HTTPException(
@@ -337,9 +601,18 @@ def delete_es(es_id: int):
             detail=msg,
         )
 
+    es_routing_key: str = es[2]
     _LOGGER.info(
-        "Deleting event stream %s (uuid=%s routing_key='%s')", es_id, es[1], es[2]
+        "Deleting event stream %s (routing_key=%s uuid=%s)",
+        es_id,
+        es_routing_key,
+        es[1],
     )
+
+    # Clear the memcached value of this routing key.
+    # Any asyncio process using this routing key
+    # will notice this and kill itself (at some point)
+    _MEMCACHED_CLIENT.delete(es_routing_key)
 
     # Delete the ES record...
     # This will prevent any further connections.

@@ -3,27 +3,39 @@
 
 Usage: ws_listener.py <location>
 """
-import sys
+import argparse
 
 from simple_websocket import Client, ConnectionClosed
 
-if len(sys.argv) != 2:
-    print("Usage: ws_listener.py <location>")
-    sys.exit(1)
 
-_LOCATION: str = sys.argv[1]
-
-
-def main():
+def main(c_args: argparse.Namespace):
     """Connect to the WebSocket and just read messages."""
-    ws = Client.connect(_LOCATION)
+    headers = {}
+    if c_args.datetime_offset:
+        headers["X-StreamFromDatetime"] = c_args.datetime_offset
+    elif c_args.timestamp_offset:
+        headers["X-StreamFromTimestamp"] = c_args.timestamp_offset
+    elif c_args.ordinal_offset:
+        headers["X-StreamFromOrdinal"] = c_args.ordinal_offset
+
+    ws = Client.connect(c_args.location, headers=headers)
     try:
         while True:
             data = ws.receive()
-            print(str(data))
+            print(data)
     except (KeyboardInterrupt, EOFError, ConnectionClosed):
         ws.close()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        prog="WebSocket Stream Listener",
+        description="A simple WebSocket stream listener",
+    )
+    parser.add_argument("location")
+    parser.add_argument("-d", "--datetime-offset")
+    parser.add_argument("-t", "--timestamp-offset")
+    parser.add_argument("-o", "--ordinal-offset")
+    args = parser.parse_args()
+
+    main(args)

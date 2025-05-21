@@ -11,3 +11,6 @@ ess_image_tag: SetMe
 ess_service_account: SetMe
 ess_ws_hostname: SetMe
 ess_ampq_url: SetMe
+
+ess_shared_volume_volume_storageclass: SetMe
+ess_log_volume_volume_storageclass: SetMe
