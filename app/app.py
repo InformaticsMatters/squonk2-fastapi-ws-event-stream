@@ -326,7 +326,7 @@ async def event_stream(
     # This might 'knock-out' a previous socket using that key.
     # That's fine - the on_message_for_websocket() function will notice this
     # on the next message and should shut itself down.
-    new_socket_uuid: str = python_uuid.uuid4()
+    new_socket_uuid: str = str(python_uuid.uuid4())
     _LOGGER.info("Assigning connection ID %s for %s", new_socket_uuid, es_id)
     existing_socket_uuid: bytes = _MEMCACHED_CLIENT.get(es_routing_key)
     if existing_socket_uuid and existing_socket_uuid.decode("utf-8") != new_socket_uuid:
@@ -396,14 +396,14 @@ async def generate_on_message_for_websocket(
         #    This typically means we've been replaced by a new stream.
         # 2. We get a POISON message
         stream_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
-        if (
-            not stream_socket_uuid
-            or stream_socket_uuid.decode("utf-8") != es_websocket_uuid
-        ):
+        if not stream_socket_uuid:
+            _LOGGER.info("There is no connection ID for %s (stopping)...", es_id)
+            shutdown = True
+        elif stream_socket_uuid.decode("utf-8") != es_websocket_uuid:
             _LOGGER.info(
                 "There is a new owner of %s (%s), and it is not us (%s) (stopping)...",
                 es_id,
-                stream_socket_uuid,
+                stream_socket_uuid.decode("utf-8"),
                 es_websocket_uuid,
             )
             shutdown = True
