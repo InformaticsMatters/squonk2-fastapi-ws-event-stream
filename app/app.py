@@ -332,7 +332,7 @@ async def event_stream(
     _LOGGER.warning(
         "Assigning unique WebSocket ID (%s) for this EventStream (routing_key=%s uuid=%s)",
         new_socket_uuid,
-        routing_key,
+        es_routing_key,
         uuid,
     )
     existing_routing_key_uuid: str = _MEMCACHED_CLIENT.get(routing_key)
@@ -349,8 +349,7 @@ async def event_stream(
     # We don't return from here until there's an error.
     _LOGGER.debug("Consuming %s...", es_id)
     await _consume(
-        consumer=consumer,
-        stream_name=es_routing_key,
+        consumer,
         es_id=es_id,
         es_routing_key=es_routing_key,
         es_websocket_uuid=new_socket_uuid,
@@ -366,7 +365,7 @@ async def event_stream(
 
 
 async def generate_on_message_for_websocket(
-    websocket: WebSocket, es_id: str, es_routing_key: str, es_websocket_uuid: str
+    websocket: WebSocket, *, es_id: str, es_routing_key: str, es_websocket_uuid: str
 ):
     """Here we use "currying" to append pre-set parameters
     to a function that will be used as the stream consumer message callback handler.
@@ -451,9 +450,8 @@ async def generate_on_message_for_websocket(
 
 
 async def _consume(
-    *,
     consumer: Consumer,
-    stream_name: str,
+    *,
     es_id: str,
     es_routing_key: str,
     es_websocket_uuid: str,
@@ -464,7 +462,7 @@ async def _consume(
     based on the provided routing key.
     """
     on_message = await generate_on_message_for_websocket(
-        websocket=websocket,
+        websocket,
         es_id=es_id,
         es_routing_key=es_routing_key,
         es_websocket_uuid=es_websocket_uuid,
@@ -481,13 +479,13 @@ async def _consume(
     subscribed: bool = True
     try:
         await consumer.subscribe(
-            stream=stream_name,
+            stream=es_routing_key,
             callback=on_message,
             decoder=amqp_decoder,
             offset_specification=offset_specification,
         )
     except StreamDoesNotExist:
-        _LOGGER.warning("Stream '%s' for %s does not exist", stream_name, es_id)
+        _LOGGER.warning("Stream '%s' for %s does not exist", es_routing_key, es_id)
         subscribed = False
 
     if subscribed:
