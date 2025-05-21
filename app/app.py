@@ -345,10 +345,19 @@ async def event_stream(
         offset_specification=offset_specification,
     )
 
-    # One our way out...
-    await websocket.close(
-        code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
-    )
+    # On our way out...
+    try:
+        await websocket.close(
+            code=status.WS_1000_NORMAL_CLOSURE, reason="The stream has been deleted"
+        )
+    except RuntimeError:
+        # There's a chance we encounter a RuntimeError
+        # with the message 'RuntimeError: Cannot call "send" once a close message has been sent.'
+        # We don't care - we have to just get out of here
+        # so errors in tear-down have to be ignored,
+        # and there's no apparent way to know whether calling 'close()' is safe.
+        _LOGGER.debug("Ignoring RuntimeError from close() for %s", es_id)
+
     _LOGGER.info("Closed WebSocket for %s (uuid=%s)", es_id, uuid)
 
 
