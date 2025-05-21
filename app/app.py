@@ -5,6 +5,7 @@ import logging
 import os
 import sqlite3
 import time
+import uuid as python_uuid
 from logging.config import dictConfig
 from typing import Annotated, Any
 from urllib.parse import ParseResult, urlparse
@@ -127,7 +128,6 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _LOGGER.info("Memcached version=%s", _MEMCACHED_CLIENT.version().decode("utf-8"))
 
     # List existing event streams
-    # and ensure the memcached cache reflects this...
     _DB_CONNECTION = sqlite3.connect(_DATABASE_PATH)
     _CUR = _DB_CONNECTION.cursor()
     _RES = _CUR.execute("SELECT * FROM es")
@@ -142,7 +142,6 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
             _ES[0],
             routing_key,
         )
-        _MEMCACHED_CLIENT.set(routing_key, ess_uuid)
 
 
 # We use pydantic to declare the model (request payloads) for the internal REST API.
@@ -317,6 +316,35 @@ async def event_stream(
         await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=msg)
         return
 
+    # We use the memcached service to record this connection against the routing key.
+    # we create a new unique ID for this call and set it as the value for the stream
+    # using the routing key as a memcached key.
+    #
+    # There may be multiple WebSocket calls for this event stream but we must restrict
+    # ourselves to just one. Streams (against the same routing key) check memcached
+    # on message retrieval to determine whether they need to shutdown or not.
+    #
+    # Simply set a new value for the memcached key (the routing key).
+    # This might 'knock-out' a previous socket using that key.
+    # That's fine - the on_message_for_websocket() function will notice this
+    # on the next message and should shut itself down.
+    new_socket_uuid: str = python_uuid.uuid4()
+    _LOGGER.warning(
+        "Assigning unique WebSocket ID (%s) for this EventStream (routing_key=%s uuid=%s)",
+        new_socket_uuid,
+        routing_key,
+        uuid,
+    )
+    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.get(routing_key)
+    if existing_routing_key_uuid and existing_routing_key_uuid != new_socket_uuid:
+        _LOGGER.warning(
+            "Replaced routing key %s WebSocket unique ID (%s) with ours (%s)",
+            routing_key,
+            existing_routing_key_uuid,
+            new_socket_uuid,
+        )
+    _MEMCACHED_CLIENT.set(routing_key, new_socket_uuid)
+
     # Start consuming the stream.
     # We don't return from here until there's an error.
     _LOGGER.debug("Consuming %s...", es_id)
@@ -325,7 +353,7 @@ async def event_stream(
         stream_name=es_routing_key,
         es_id=es_id,
         es_routing_key=es_routing_key,
-        es_uuid=uuid,
+        es_websocket_uuid=new_socket_uuid,
         websocket=websocket,
         offset_specification=offset_specification,
     )
@@ -338,7 +366,7 @@ async def event_stream(
 
 
 async def generate_on_message_for_websocket(
-    websocket: WebSocket, es_id: str, es_routing_key: str, es_uuid: str
+    websocket: WebSocket, es_id: str, es_routing_key: str, es_websocket_uuid: str
 ):
     """Here we use "currying" to append pre-set parameters
     to a function that will be used as the stream consumer message callback handler.
@@ -347,7 +375,7 @@ async def generate_on_message_for_websocket(
     assert websocket
     assert es_id
     assert es_routing_key
-    assert es_uuid
+    assert es_websocket_uuid
 
     async def on_message_for_websocket(
         msg: AMQPMessage, message_context: MessageContext
@@ -380,13 +408,13 @@ async def generate_on_message_for_websocket(
         #    (e.g. our UUID is not the value of the cached routing key im memcached).
         #    This typically means we've been replaced by a new stream.
         # 2. We get a POISON message
-        stream_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
-        if stream_uuid != es_uuid:
+        stream_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
+        if stream_socket_uuid != es_websocket_uuid:
             _LOGGER.info(
-                "There is a new owner of %s (uuid=%s). It is not me (uuid=%s) (stopping)...",
+                "There is a new owner of %s (%s), and it is not us (%s) (stopping)...",
                 es_id,
-                stream_uuid,
-                es_uuid,
+                stream_socket_uuid,
+                es_websocket_uuid,
             )
             shutdown = True
         elif msg == b"POISON":
@@ -428,7 +456,7 @@ async def _consume(
     stream_name: str,
     es_id: str,
     es_routing_key: str,
-    es_uuid: str,
+    es_websocket_uuid: str,
     websocket: WebSocket,
     offset_specification: ConsumerOffsetSpecification,
 ):
@@ -436,7 +464,10 @@ async def _consume(
     based on the provided routing key.
     """
     on_message = await generate_on_message_for_websocket(
-        websocket, es_id, es_routing_key, es_uuid
+        websocket=websocket,
+        es_id=es_id,
+        es_routing_key=es_routing_key,
+        es_websocket_uuid=es_websocket_uuid,
     )
 
     _LOGGER.info(
@@ -523,27 +554,6 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
             detail=msg,
         )
     _LOGGER.info("Created %s", es)
-
-    # We use the memcached service to record our UUID against the routing key.
-    # There should only be one UUID for each routing key but because streams
-    # use asyncio and may not reliably detect disconnections we use this
-    # mechanism to record which stream is the current stream for each routing key.
-    # We ensure that any old streams (against the same routing key) check
-    # memcached on message retrieval to determine whether they need to die or not.
-    #
-    # Simply set the new value of UUID for the memcached key (the routing key).
-    # This might 'knock-out' a previous stream registered against that key.
-    # That's fine - the asyncio process will notice this on the next message
-    # and will kill itself.
-    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.get(routing_key)
-    if existing_routing_key_uuid and existing_routing_key_uuid != uuid_str:
-        _LOGGER.warning(
-            "Replaced routing key %s UUID (%s) with ours (%s)",
-            routing_key,
-            existing_routing_key_uuid,
-            uuid_str,
-        )
-    _MEMCACHED_CLIENT.set(routing_key, uuid_str)
 
     # And construct the location we'll be listening on...
     return EventStreamPostResponse(id=es[0], location=_get_location(uuid_str))
