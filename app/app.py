@@ -328,8 +328,8 @@ async def event_stream(
     # on the next message and should shut itself down.
     new_socket_uuid: str = python_uuid.uuid4()
     _LOGGER.info("Assigning connection ID %s for %s", new_socket_uuid, es_id)
-    existing_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key).decode("utf-8")
-    if existing_socket_uuid and existing_socket_uuid != new_socket_uuid:
+    existing_socket_uuid: bytes = _MEMCACHED_CLIENT.get(es_routing_key)
+    if existing_socket_uuid and existing_socket_uuid.decode("utf-8") != new_socket_uuid:
         _LOGGER.warning("Replacing existing connection ID with ours for %s", es_id)
     _MEMCACHED_CLIENT.set(es_routing_key, new_socket_uuid)
 
@@ -395,8 +395,11 @@ async def generate_on_message_for_websocket(
         #    (e.g. our UUID is not the value of the cached routing key im memcached).
         #    This typically means we've been replaced by a new stream.
         # 2. We get a POISON message
-        stream_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key).decode("utf-8")
-        if stream_socket_uuid != es_websocket_uuid:
+        stream_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
+        if (
+            not stream_socket_uuid
+            or stream_socket_uuid.decode("utf-8") != es_websocket_uuid
+        ):
             _LOGGER.info(
                 "There is a new owner of %s (%s), and it is not us (%s) (stopping)...",
                 es_id,
