@@ -134,13 +134,11 @@ if os.getenv("IMAGE_ROLE", "").lower() == "internal":
     _EVENT_STREAMS = _RES.fetchall()
     _DB_CONNECTION.close()
     for _ES in _EVENT_STREAMS:
-        routing_key: str = _ES[2]
-        ess_uuid: str = _ES[1]
         _LOGGER.info(
             "Existing EventStream: %s (id=%s routing_key=%s)",
             _get_location(_ES[1]),
             _ES[0],
-            routing_key,
+            _ES[2],
         )
 
 
@@ -335,15 +333,15 @@ async def event_stream(
         es_routing_key,
         uuid,
     )
-    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.get(routing_key)
-    if existing_routing_key_uuid and existing_routing_key_uuid != new_socket_uuid:
+    existing_socket_uuid: str = _MEMCACHED_CLIENT.get(es_routing_key)
+    if existing_socket_uuid and existing_socket_uuid != new_socket_uuid:
         _LOGGER.warning(
             "Replaced routing key %s WebSocket unique ID (%s) with ours (%s)",
-            routing_key,
-            existing_routing_key_uuid,
+            es_routing_key,
+            existing_socket_uuid,
             new_socket_uuid,
         )
-    _MEMCACHED_CLIENT.set(routing_key, new_socket_uuid)
+    _MEMCACHED_CLIENT.set(es_routing_key, new_socket_uuid)
 
     # Start consuming the stream.
     # We don't return from here until there's an error.
