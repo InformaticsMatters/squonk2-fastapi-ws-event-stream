@@ -12,6 +12,7 @@ fastapi = "0.115.8"
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 python-dateutil = "2.9.0"
 # Flexible versions
+pymemcache = "^4.0.0"
 pydantic = "^2.10.6"
 python = "^3.12"
 rstream = "^0.20.9"

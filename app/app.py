@@ -20,6 +20,9 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel
+from pymemcache.client.base import Client
+from pymemcache.client.retrying import RetryingClient
+from pymemcache.exceptions import MemcacheUnexpectedCloseError
 from rstream import (
     AMQPMessage,
     Consumer,
@@ -65,6 +68,20 @@ if len(_PARSED_AMPQ_URL.path) > 1:
     _AMPQ_VHOST: str = _PARSED_AMPQ_URL.path[1:]
 else:
     _AMPQ_VHOST = "/"
+
+# Configure memcached (routing key to ESS UUID map)
+# The location is either a host ("localhost")
+# or host and port if the port is not the expected default of 11211 ("localhost:1234")
+_MEMCACHED_LOCATION: str = os.getenv("ESS_MEMCACHED_LOCATION", "localhost")
+_MEMCACHED_BASE_CLIENT: Client = Client(
+    _MEMCACHED_LOCATION, connect_timeout=4, timeout=0.5
+)
+_MEMCACHED_CLIENT: RetryingClient = RetryingClient(
+    _MEMCACHED_BASE_CLIENT,
+    attempts=3,
+    retry_delay=0.01,
+    retry_for=[MemcacheUnexpectedCloseError],
+)
 
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
@@ -470,6 +487,27 @@ def post_es(request_body: EventStreamPostRequestBody) -> EventStreamPostResponse
         )
     _LOGGER.info("Created %s", es)
 
+    # We use the memcached service to record our UUID against the routing key.
+    # There should only be one UUID for each routing key but because streams
+    # use asyncio and may not reliably detect disconnections we use this
+    # mechanism to record which stream is the current stream for each routing key.
+    # We ensure that any old streams (against the same routing key) check
+    # memcached on message retrieval to determine whether they need to die or not.
+    #
+    # Simply set the new value of UUID for the memcached key (the routing key).
+    # This might 'knock-out' a previous stream registered against that key.
+    # That's fine - the asyncio process will notice this on the next message
+    # and will kill itself.
+    existing_routing_key_uuid: str = _MEMCACHED_CLIENT.set(routing_key)
+    if existing_routing_key_uuid != uuid_str:
+        _LOGGER.warning(
+            "Replaced routing key %s UUID (%s) with ours (%s)",
+            routing_key,
+            existing_routing_key_uuid,
+            uuid_str,
+        )
+    _MEMCACHED_CLIENT.set(routing_key, uuid_str)
+
     # And construct the location we'll be listening on...
     return EventStreamPostResponse(id=es[0], location=_get_location(uuid_str))
 
@@ -518,9 +556,15 @@ def delete_es(es_id: int):
             detail=msg,
         )
 
+    routing_key: str = es[2]
     _LOGGER.info(
-        "Deleting event stream %s (uuid=%s routing_key='%s')", es_id, es[1], es[2]
+        "Deleting event stream %s (uuid=%s routing_key='%s')", es_id, es[1], routing_key
     )
+
+    # Clear the memcached value of this routing key.
+    # Any asyncio process using this routing key
+    # will notice this and kill itself (at some point)
+    _MEMCACHED_CLIENT.delete(routing_key)
 
     # Delete the ES record...
     # This will prevent any further connections.

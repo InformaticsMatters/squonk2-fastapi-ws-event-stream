@@ -11,5 +11,19 @@ ess_cert_manager_issuer_base: letsencrypt-{{ ess_ingress_class }}
 # One of 'production', 'staging' or blank (for no SSL).
 ess_cert_issuer:
 
+# memcached image tag
+ess_memcached_tag: 1.6.38-alpine3.21
+ess_memcached_memory_limit: 200m
+# memcached resources
+ess_memcached_cpu_request: 100m
+ess_memcached_mem_request:
+ess_memcached_cpu_limit: 256Mi
+ess_memcached_mem_limit: 256Mi
+# Environment
+# Number of connections
+ess_memcached_max_connections: 16
+# Max item size - we use shortuuid strings
+ess_memcached_max_item_size: 22
+
 ess_priority_class:
 ess_api_termination_grace_period_seconds: 30

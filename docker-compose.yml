@@ -17,6 +17,17 @@ services:
     - '15672:15672'
     - '25672:25672'
 
+  memcached:
+    image: memcached:1.6.38-alpine3.21
+    container_name: memcached
+    environment:
+      MEMCACHED_MAX_ITEM_SIZE: 22
+      MEMCACHED_MAX_CONNECTIONS: 8
+      MEMCACHED_MEMORY_LIMIT: 64
+      MEMCACHED_EXTRA_FLAGS: -v
+    ports:
+    - '11211:11211'
+
   es:
     build:
       context: .
@@ -26,8 +37,14 @@ services:
       ESS_AMPQ_URL: 'amqp://es:cheddar1963@rabbitmq:5672'
       ESS_INGRESS_LOCATION: 'localhost:8080'
       ESS_INGRESS_SECURE: 'no'
+      ESS_MEMCACHED_LOCATION: memcached
     ports:
     # Public (Websocket)
     - '8080:8080'
     # Internal (API)
     - '8081:8081'
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      memcached:
+        condition: service_started
