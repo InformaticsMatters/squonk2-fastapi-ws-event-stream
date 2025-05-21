@@ -22,7 +22,7 @@ services:
     container_name: memcached
     environment:
       MEMCACHED_MAX_ITEM_SIZE: 36
-      MEMCACHED_MAX_CONNECTIONS: 8
+      MEMCACHED_MAX_CONNECTIONS: 1
       MEMCACHED_MEMORY_LIMIT: 64
     ports:
     - '11211:11211'
