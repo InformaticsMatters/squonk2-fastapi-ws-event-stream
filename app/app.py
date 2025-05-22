@@ -405,14 +405,14 @@ async def generate_on_message_for_websocket(
         # - timestamp: int (milliseconds since Python time epoch)
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
-        _LOGGER.info(
+        _LOGGER.debug(
             "Got msg=%s stream=%s es_id=%s /%s/",
             msg,
             r_stream,
             es_id,
             es_websocket_uuid,
         )
-        _LOGGER.info(
+        _LOGGER.debug(
             "With offset=%s timestamp=%s /%s/",
             message_context.offset,
             message_context.timestamp,
@@ -448,12 +448,10 @@ async def generate_on_message_for_websocket(
             shutdown = True
         elif msg:
             _LOGGER.info("PREPARING %s", message_context.offset)
-            # The msg (an AMQPMessage) cannot be decoded directly.
-            # Instead, if we want to manipulate it (as a string)
-            # we must str() it and eval() it! It's the easiest way because this way
-            # it becomes a string representation of a bytestring, not a bytestring.
-            # Once we eval() it it becomes a bytestring and we can decode it.
-            message_string = eval(str(msg)).decode("utf-8")  # pylint: disable=eval-used
+            # The msg (an AMQPMessage) cannot be decoded directly, but we can
+            # invoke its built-in __bytes__() representation to get the message as bytes.
+            # We can then decode it to get a string we can manipulate.
+            message_string = bytes(msg).decode("utf-8")
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] == "{":
                 _LOGGER.info("IS JSON %s", message_context.offset)
