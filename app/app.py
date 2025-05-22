@@ -448,9 +448,12 @@ async def generate_on_message_for_websocket(
             shutdown = True
         elif msg:
             _LOGGER.info("PREPARING %s", message_context.offset)
-            # We know the AMQPMessage (as a string will start "b'" and end "'"
-            #            message_string = msg.decode("utf-8")
-            message_string = eval(msg).decode("utf-8")  # pylint: disable=eval-used
+            # The msg (an AMQPMessage) cannot be decoded directly.
+            # Instead, if we want to manipulate it (as a string)
+            # we must str() it and eval() it! It's the easiest way because this way
+            # it becomes a string representation of a bytestring, not a bytestring.
+            # Once we eval() it it becomes a bytestring and we can decode it.
+            message_string = eval(str(msg)).decode("utf-8")  # pylint: disable=eval-used
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] == "{":
                 _LOGGER.info("IS JSON %s", message_context.offset)
