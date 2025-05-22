@@ -153,9 +153,8 @@ class EventStreamPostRequestBody(BaseModel):
 class EventStreamGetVersionResponse(BaseModel):
     """/event-stream/version/ GET response."""
 
-    # Category of the service (enumeration).
-    # We're a 'WEBSOCKET'
-    category: str
+    # Protocol of the service (enumeration).
+    protocol: str
     # Our name (ours is 'Python FastAPI')
     name: str
     # Our version number
@@ -503,9 +502,9 @@ async def _consume(
 
 @app_internal.get("/event-stream/version/", status_code=status.HTTP_200_OK)
 def get_es_version() -> EventStreamGetVersionResponse:
-    """Returns our version information."""
+    """Returns our version information. We're a 'WEBSOCKET'."""
     return EventStreamGetVersionResponse(
-        category="WEBSOCKET",
+        protocol="WEBSOCKET",
         name="Python FastAPI",
         version=_VERSION,
     )
