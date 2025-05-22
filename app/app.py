@@ -395,6 +395,11 @@ async def generate_on_message_for_websocket(
     async def on_message_for_websocket(
         msg: AMQPMessage, message_context: MessageContext
     ):
+        # CAUTION: EVERY possible exception needs to be handled here
+        #          otherwise the problem will not be seen,
+        #          as exceptions are not exposed to the log and
+        #          messages just get dropped.
+
         # The message is expected to be formed from an
         # AMQPMessage generated in the AS using 'body=bytes(message_string, "utf-8")'
         #
@@ -451,7 +456,10 @@ async def generate_on_message_for_websocket(
             # The msg (an AMQPMessage) cannot be decoded directly, but we can
             # invoke its built-in __bytes__() representation to get the message as bytes.
             # We can then decode it to get a string we can manipulate.
-            message_string = bytes(msg).decode("utf-8")
+            try:
+                message_string = bytes(msg).decode("utf-8")
+            except Exception as ex:  # pylint: disable=broad-exception-caught
+                _LOGGER.error("EXCEPTION %s", ex)
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] == "{":
                 _LOGGER.info("IS JSON %s", message_context.offset)
@@ -463,7 +471,12 @@ async def generate_on_message_for_websocket(
                     json.decoder.JSONDecodeError
                 ) as jde:  # pylint: disable=broad-exception-caught
                     _LOGGER.error(
-                        "Got JSONDecodeError %s (%s)", message_context.offset, jde
+                        "JSONDecodeError for offset %s on %s /%s/ '%s' (skipping) message=%s",
+                        message_context.offset,
+                        es_id,
+                        es_websocket_uuid,
+                        jde,
+                        message_string,
                     )
                     return
                 msg_dict["ess_ordinal"] = message_context.offset
