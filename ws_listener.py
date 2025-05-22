@@ -4,6 +4,7 @@
 Usage: ws_listener.py <location>
 """
 import argparse
+import json
 
 from simple_websocket import Client, ConnectionClosed
 
@@ -22,7 +23,34 @@ def main(c_args: argparse.Namespace):
     try:
         while True:
             data = ws.receive()
-            print(data)
+            msg_type = "(unknown)"
+            msg = "(unknown)"
+            ordinal = "(unknown)"
+            timestamp = "(unknown)"
+            if data[0] == "{":
+                # A JSON message
+                data_map = json.loads(data)
+                msg_type = data_map["message_type"]
+                msg = data_map["message_body"]
+                ordinal = data_map["ess_ordinal"]
+                timestamp = data_map["ess_timestamp"]
+            else:
+                # A protocol buffer message
+                sections = data.split("|")
+                print(data)
+                msg_type = sections[0]
+                msg = sections[1]
+                if len(sections) > 2:
+                    ordinal = sections[2].split()[1]
+                    timestamp = sections[3].split()[1]
+                else:
+                    ordinal = "(not present)"
+                    timestamp = "(not present)"
+            print("---------")
+            print(f"  ORDINAL: {ordinal}")
+            print(f"TIMESTAMP: {timestamp}")
+            print(f"     TYPE: {msg_type}")
+            print(f"     BODY: {msg}")
     except (KeyboardInterrupt, EOFError, ConnectionClosed):
         ws.close()
 
