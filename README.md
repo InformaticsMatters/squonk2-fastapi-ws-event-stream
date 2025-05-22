@@ -17,11 +17,13 @@ A FastAPI (Python) implementation of the Squonk2 (AS) Event Streaming service.
 This repository is responsible for the container image that implements
 the event-streaming service of the Squonk2 AS platform and is deployed to the
 Namespace of the AS to service internal requests from the API to create, delete
-and connect to the internal messaging bus to stream events to a client.
+and manager Event Streams for client applications. Clients interact with the AS
+API to create and delete Event Streams, but is this application that is
+responsible for the WebSocket endpoints and for delivery of events to the client.
 
 The implementation is based on Python and the [FastAPI] framework, offering
-_public_ WebSockets managed by an _internal_ API using the following (required)
-endpoints: -
+_public_ WebSockets managed by an _internal_ API (that the AS uses) and provides
+the following (required) endpoints: -
 
     /event-stream/version/ GET
     /event-stream/ POST
@@ -32,7 +34,8 @@ See the AS documentation for more details, and the discussion of the [Event Stre
 service on its internal wiki.
 
 The application runs two **uvicorn** FastAPI processes in the container.
-An API listening on port `8081`, and the WebSocket service listening on port `8080`.
+An internal API listening on port `8081` used by the AS, and the public WebSocket
+service listening on port `8080`.
 
 ## Contributing
 The project uses: -
@@ -181,10 +184,10 @@ RabbitMQ Topic Queue.
 Version 2 uses the `rstream` package and relies on a RabbitMQ stream.
 
 Version 2 also extends messages prior to forwarding them to their socket clients.
-It does this by appending the messages's **ordinal** (an `integer`, its _offset_ in the
-stream), and  **timestamp** (also an `integer`), both of which are provided by the
-backing RabbitMQ stream as the messages are received.
-The **ordinal** can be used as a unique message identifier.
+It does this by appending the messages's **ordinal** (an `integer`, known as the
+_offset_ in the RabbitMQ stream), and  **timestamp** (also an `integer`),
+both of which are provided by the backing RabbitMQ stream as the messages are received.
+You can also use the **ordinal** as a unique message identifier.
 
 When received as a protobuf string the values are appended to the end of the original
 message using `|` as a delimiter. Here is an example, with the message split at the
@@ -220,7 +223,7 @@ If you do not provide any header value your socket will only deliver new events.
 
 You can select the start of your events buy providing either an **ordinal**,
 **timestamp**, or **datetime** string. The first event delivered will the next
-event after the given reference. For example, if you provide **ordinal** `100`
+event after the given reference. For example, if you provide **ordinal** `100`,
 the next event you can expect to receive is an event with **ordinal** `101`.
 
 -   To stream from a specific **ordinal**, provide it as the numerical value
@@ -247,20 +250,22 @@ The Account Server (AS) relies on [RabbitMQ] for its event streaming service,
 ans storage capacity for each stream is configured by the AS. Importantly events
 are not retained indefinitely, and typically only for a few days. Consequently,
 if you disconnect from an event stream for a long period of time any **ordinal**
-you have kept may not me valid.
+you have kept may have been lost. In this situation the Event Streaming service
+will just deliver the first event it has available.
 
-You will know that you have lost messages if you keep a record of the last
-message **ordinal** you received. If you received **ordinal** `100` and then
-reconnect with an `X-StreamOffsetFromOrdinal` value of `100`, and your first message
-has the **ordinal** `150` you can assume that 49 messages have been lost.
+You will know that you have lost messages if you keep a record of the most recent
+message **ordinal**. If you received **ordinal** `100` and then, some time later,
+re-connect using an `X-StreamOffsetFromOrdinal` value of `100`, and the first message
+your receive has the **ordinal** `150` then you can assume 49 messages have been lost.
 
 Having said all this the AS stream storage configuration is generous and, depending
-on event message size, should be able to retain events for several days.
+on event message size, and your streams message rate, the AS should be able to retain
+events for several days.
 
->   Remember that recording **ordinals** (or **timestamps**) for every message you
-    receive may not be practical, especially if you are storing these values in a
-    file or database. You might instead record message references in _blocks_ of
-    100, or 1000.
+>   Recording **ordinals** (or **timestamps**) for every message you
+    receive may not be practical as this may impact your application performance,
+    especially if you are storing these values in a file or database. You might
+    instead record message references in _blocks_ of 100, or 1,000.
 
 ---
 
