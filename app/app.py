@@ -453,13 +453,18 @@ async def generate_on_message_for_websocket(
             shutdown = True
         elif msg:
             _LOGGER.info("PREPARING %s", message_context.offset)
-            # The msg (an AMQPMessage) cannot be decoded directly, but we can
-            # invoke its built-in __bytes__() representation to get the message as bytes.
-            # We can then decode it to get a string we can manipulate.
+            # At the time of writing it seemed as though the msg (an AMQPMessage)
+            # could not be decoded directly, but we can invoke its built-in __str__()
+            # representation to get the message as a string. We get a series of bytes
+            # represented as a string (e.g. "b'xyz'"). With this we can eval() it
+            # to get _real_ bytes and then decode it (assuming it to be utf-8)
+            # in order to get the message as a string! :-O
             try:
-                message_string = bytes(msg).decode("utf-8")
+                message_string = eval(str(msg)).decode(  # pylint: disable=eval-used
+                    "utf-8"
+                )
             except Exception as ex:  # pylint: disable=broad-exception-caught
-                _LOGGER.error("EXCEPTION %s", ex)
+                _LOGGER.error("Exception trying to decode message %s", ex)
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] == "{":
                 _LOGGER.info("IS JSON %s", message_context.offset)
@@ -479,6 +484,7 @@ async def generate_on_message_for_websocket(
                         message_string,
                     )
                     return
+                # Now decoded to a dictionary if we get here...
                 msg_dict["ess_ordinal"] = message_context.offset
                 msg_dict["ess_timestamp"] = message_context.timestamp
                 message_string = json.dumps(msg_dict)
