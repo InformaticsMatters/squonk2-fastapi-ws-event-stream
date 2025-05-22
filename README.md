@@ -257,7 +257,7 @@ has the **ordinal** `150` you can assume that 49 messages have been lost.
 Having said all this the AS stream storage configuration is generous and, depending
 on event message size, should be able to retain events for several days.
 
->   Remember that recording **ordinals** (or ***timestamps**) for every message you
+>   Remember that recording **ordinals** (or **timestamps**) for every message you
     receive may not be practical, especially if you are storing these values in a
     file or database. You might instead record message references in _blocks_ of
     100, or 1000.
