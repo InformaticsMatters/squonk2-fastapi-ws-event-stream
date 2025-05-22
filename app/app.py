@@ -449,7 +449,7 @@ async def generate_on_message_for_websocket(
         elif msg:
             _LOGGER.info("PREPARING %s", message_context.offset)
             # We know the AMQPMessage (as a string will start "b'" and end "'"
-            message_string = str(msg)[2:-1]
+            message_string = msg.decode("utf-8")
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] != "{":
                 _LOGGER.info("IS PROTOBUF %s", message_context.offset)
