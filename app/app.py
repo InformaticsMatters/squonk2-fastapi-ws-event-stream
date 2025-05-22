@@ -421,6 +421,7 @@ async def generate_on_message_for_websocket(
         # Update message received count
         num_messages_received: int = message_stats[_MESSAGE_STATS_KEY_RECEIVED] + 1
         message_stats[_MESSAGE_STATS_KEY_RECEIVED] = num_messages_received
+        _LOGGER.info("COUNTED %s", message_context.offset)
 
         shutdown: bool = False
         # We shutdown if...
@@ -446,14 +447,18 @@ async def generate_on_message_for_websocket(
             )
             shutdown = True
         elif msg:
+            _LOGGER.info("PREPARING %s", message_context.offset)
             # We know the AMQPMessage (as a string will start "b'" and end "'"
             message_string = str(msg)[2:-1]
+            _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] != "{":
+                _LOGGER.info("IS JSON %s", message_context.offset)
                 # The EventStream Service is permitted to append to the protobuf string
                 # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
                 message_string += f"|ordinal: {message_context.offset}"
                 message_string += f"|timestamp: {message_context.timestamp}"
             else:
+                _LOGGER.info("IS PROTOBUF %s", message_context.offset)
                 # The EventStream Service is permitted to append to the JSON string
                 # as long as it uses keys with the prefix "ess_"
                 msg_dict: dict[str, Any] = json.loads(message_string)
