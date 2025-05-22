@@ -405,16 +405,18 @@ async def generate_on_message_for_websocket(
         # - timestamp: int (milliseconds since Python time epoch)
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
-        _LOGGER.debug(
-            "Got msg='%s' stream=%s es_id=%s",
+        _LOGGER.info(
+            "Got msg='%s' stream=%s es_id=%s /%s/",
             msg,
             r_stream,
             es_id,
+            es_websocket_uuid,
         )
-        _LOGGER.debug(
-            "With offset=%s timestamp=%s",
+        _LOGGER.info(
+            "With offset=%s timestamp=%s /%s/",
             message_context.offset,
             message_context.timestamp,
+            es_websocket_uuid,
         )
         # Update message received count
         num_messages_received: int = message_stats[_MESSAGE_STATS_KEY_RECEIVED] + 1
@@ -479,7 +481,6 @@ async def generate_on_message_for_websocket(
             != message_stats[_MESSAGE_STATS_KEY_SENT]
         ):
             _LOGGER.info("COUNT MISMATCH %s", message_stats)
-            _LOGGER.info("Last message: %s", message_string)
 
         # Consider regular INFO summary.
         # Stats will ultimately be produced if the socket closes,
