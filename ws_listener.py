@@ -19,10 +19,23 @@ def main(c_args: argparse.Namespace):
     elif c_args.ordinal_offset:
         headers["X-StreamFromOrdinal"] = c_args.ordinal_offset
 
+    total_bytes = 0
+    total_messages = 0
+    min_bytes = 1_000_000
+    max_bytes = 0
     ws = Client.connect(c_args.location, headers=headers)
     try:
         while True:
+
             data = ws.receive()
+
+            # Collect some stats
+            data_len = len(data)
+            total_bytes += data_len
+            min_bytes = min(min_bytes, data_len)
+            max_bytes = max(max_bytes, data_len)
+            total_messages += 1
+
             msg_type = "(unknown)"
             msg = "(unknown)"
             ordinal = "(unknown)"
@@ -46,11 +59,15 @@ def main(c_args: argparse.Namespace):
                 else:
                     ordinal = "(not present)"
                     timestamp = "(not present)"
-            print("---------")
-            print(f"  ORDINAL: {ordinal}")
-            print(f"TIMESTAMP: {timestamp}")
-            print(f"     TYPE: {msg_type}")
-            print(f"     BODY: {msg}")
+            print("-----------")
+            print(f"    ORDINAL: {ordinal}")
+            print(f"  TIMESTAMP: {timestamp}")
+            print(f"       TYPE: {msg_type}")
+            print(f"       BODY: {msg}")
+            print(f"TOTAL BYTES: {total_bytes}")
+            print(f"  MIN BYTES: {min_bytes}")
+            print(f"  MAX BYTES: {max_bytes}")
+            print(f"  AVG BYTES: {int(total_bytes/total_messages + 0.5)}")
     except (KeyboardInterrupt, EOFError, ConnectionClosed):
         ws.close()
 
