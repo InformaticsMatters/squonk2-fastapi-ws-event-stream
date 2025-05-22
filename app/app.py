@@ -89,6 +89,12 @@ _MEMCACHED_CLIENT: RetryingClient = RetryingClient(
     retry_for=[MemcacheUnexpectedCloseError],
 )
 
+# Message handler stats interval.
+# The recurring number of messages received before stats are emitted.
+_MESSAGE_STATS_INTERVAL: int = int(os.getenv("ESS_MESSAGE_STATS_INTERVAL", "800"))
+_MESSAGE_STATS_KEY_RECEIVED: str = "received"
+_MESSAGE_STATS_KEY_SENT: str = "sent"
+
 # SQLite database path
 _DATABASE_PATH = "/data/event-streams.db"
 
@@ -361,7 +367,12 @@ async def event_stream(
 
 
 async def generate_on_message_for_websocket(
-    websocket: WebSocket, *, es_id: str, es_routing_key: str, es_websocket_uuid: str
+    websocket: WebSocket,
+    *,
+    es_id: str,
+    es_routing_key: str,
+    es_websocket_uuid: str,
+    message_stats: dict[str, Any],
 ):
     """Here we use "currying" to append pre-set parameters
     to a function that will be used as the stream consumer message callback handler.
@@ -385,7 +396,7 @@ async def generate_on_message_for_websocket(
         # - timestamp: int (milliseconds since Python time epoch)
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
-        _LOGGER.info(
+        _LOGGER.debug(
             "Got msg='%s' stream=%s es_id=%s",
             msg,
             r_stream,
@@ -396,6 +407,9 @@ async def generate_on_message_for_websocket(
             message_context.offset,
             message_context.timestamp,
         )
+        # Update message received count
+        num_messages_received: int = message_stats[_MESSAGE_STATS_KEY_RECEIVED] + 1
+        message_stats[_MESSAGE_STATS_KEY_RECEIVED] = num_messages_received
 
         shutdown: bool = False
         # We shutdown if...
@@ -434,12 +448,22 @@ async def generate_on_message_for_websocket(
                 msg_dict["ess_timestamp"] = message_context.timestamp
                 message_string = json.dumps(msg_dict)
             try:
+                # Pass on and count
                 await websocket.send_text(message_string)
+                message_stats[_MESSAGE_STATS_KEY_SENT] = (
+                    message_stats[_MESSAGE_STATS_KEY_SENT] + 1
+                )
             except WebSocketDisconnect:
                 _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
                 shutdown = True
 
         _LOGGER.debug("Handled msg for %s...", es_id)
+
+        # Consider regular INFO summary.
+        # Stats will ultimately be produced if the socket closes,
+        # so we just have to consider regular updates here.
+        if num_messages_received % _MESSAGE_STATS_INTERVAL == 0:
+            _LOGGER.info("Message stats for %s: %s", es_id, message_stats)
 
         if shutdown:
             _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
@@ -460,11 +484,20 @@ async def _consume(
     """An asynchronous generator yielding message bodies from the queue
     based on the provided routing key.
     """
-    on_message = await generate_on_message_for_websocket(
+    # A dictionary we pass to the message handler.
+    # It can add material to this
+    # (most importantly a count of received and sent messages).
+    # We'll print this when we leave this consumer.
+    message_stats: dict[str, Any] = {
+        _MESSAGE_STATS_KEY_RECEIVED: 0,
+        _MESSAGE_STATS_KEY_SENT: 0,
+    }
+    message_handler = await generate_on_message_for_websocket(
         websocket,
         es_id=es_id,
         es_routing_key=es_routing_key,
         es_websocket_uuid=es_websocket_uuid,
+        message_stats=message_stats,
     )
 
     _LOGGER.info(
@@ -479,7 +512,7 @@ async def _consume(
     try:
         await consumer.subscribe(
             stream=es_routing_key,
-            callback=on_message,
+            callback=message_handler,
             decoder=amqp_decoder,
             offset_specification=offset_specification,
         )
@@ -492,9 +525,9 @@ async def _consume(
         await consumer.run()
         _LOGGER.info("Stopped %s (closing)...", es_id)
         await consumer.close()
-        _LOGGER.info("Closed %s", es_id)
+        _LOGGER.info("Closed %s (message_stats=%s)", es_id, message_stats)
 
-    _LOGGER.info("Stopped consuming %s", es_id)
+    _LOGGER.info("Stopped consuming %s (message_stats=%s)", es_id, message_stats)
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
