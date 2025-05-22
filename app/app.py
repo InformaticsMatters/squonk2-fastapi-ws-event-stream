@@ -474,12 +474,19 @@ async def generate_on_message_for_websocket(
 
         _LOGGER.debug("Handled msg for %s /%s/...", es_id, es_websocket_uuid)
 
+        if (
+            message_stats[_MESSAGE_STATS_KEY_RECEIVED]
+            != message_stats[_MESSAGE_STATS_KEY_SENT]
+        ):
+            _LOGGER.info("COUNT MISMATCH %s", message_stats)
+            _LOGGER.info("Last message: %s", message_string)
+
         # Consider regular INFO summary.
         # Stats will ultimately be produced if the socket closes,
         # so we just have to consider regular updates here.
         if num_messages_received % _MESSAGE_STATS_INTERVAL == 0:
             _LOGGER.info(
-                "Message stats for %s /%s/: %s", es_id, es_websocket_uuid, message_stats
+                "Message stats for %s /%s/ %s", es_id, es_websocket_uuid, message_stats
             )
 
         if shutdown:
@@ -548,7 +555,7 @@ async def _consume(
         _LOGGER.info("Closed %s /%s/", es_id, es_websocket_uuid)
 
     _LOGGER.info(
-        "Stopped consuming %s /%s/ (message_stats=%s)",
+        "Stopped consuming %s /%s/ %s",
         es_id,
         es_websocket_uuid,
         message_stats,
