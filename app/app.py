@@ -406,7 +406,7 @@ async def generate_on_message_for_websocket(
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.info(
-            "Got msg='%s' stream=%s es_id=%s /%s/",
+            "Got msg=%s stream=%s es_id=%s /%s/",
             msg,
             r_stream,
             es_id,
@@ -462,7 +462,9 @@ async def generate_on_message_for_websocket(
                 message_string = json.dumps(msg_dict)
             try:
                 # Pass on and count
+                _LOGGER.info("SENDING %s", message_context.offset)
                 await websocket.send_text(message_string)
+                _LOGGER.info("SENT %s", message_context.offset)
                 message_stats[_MESSAGE_STATS_KEY_SENT] = (
                     message_stats[_MESSAGE_STATS_KEY_SENT] + 1
                 )
