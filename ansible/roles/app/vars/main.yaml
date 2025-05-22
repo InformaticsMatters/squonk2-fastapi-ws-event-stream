@@ -25,6 +25,7 @@ ess_memcached_mem_limit: 256Mi
 ess_memcached_max_connections: 4
 # Max item size - we use uuid4() strings
 ess_memcached_max_item_size: 36
+ess_message_stats_interval: 800
 
 ess_priority_class:
 ess_api_termination_grace_period_seconds: 30

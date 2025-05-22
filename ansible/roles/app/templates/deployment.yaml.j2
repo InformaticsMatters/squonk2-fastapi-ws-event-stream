@@ -76,6 +76,8 @@ spec:
 {% else %}
           value: 'no'
 {% endif %}
+        - name: ESS_MESSAGE_STATS_INTERVAL
+          value: '{{ ess_message_stats_interval }}'
         # CICD_TRIGGER_ID is variable whose value is used to force
         # a redeployment of the underlying containers. This is used in
         # situations where the origin image's tag may not have changed
