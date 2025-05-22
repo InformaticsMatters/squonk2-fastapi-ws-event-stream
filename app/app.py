@@ -460,18 +460,16 @@ async def generate_on_message_for_websocket(
             # to get _real_ bytes and then decode it (assuming it to be utf-8)
             # in order to get the message as a string! :-O
             try:
-                message_string = eval(str(msg)).decode(  # pylint: disable=eval-used
-                    "utf-8"
-                )
+                msg_str = eval(str(msg)).decode("utf-8")  # pylint: disable=eval-used
             except Exception as ex:  # pylint: disable=broad-exception-caught
                 _LOGGER.error("Exception trying to decode message %s", ex)
             _LOGGER.info("TRIMMED %s", message_context.offset)
-            if message_string[0] == "{":
+            if msg_str[0] == "{":
                 _LOGGER.info("IS JSON %s", message_context.offset)
                 # The EventStream Service is permitted to append to the JSON string
                 # as long as it uses keys with the prefix "ess_"
                 try:
-                    msg_dict: dict[str, Any] = json.loads(message_string)
+                    msg_dict: dict[str, Any] = json.loads(msg_str)
                 except (
                     json.decoder.JSONDecodeError
                 ) as jde:  # pylint: disable=broad-exception-caught
@@ -481,23 +479,23 @@ async def generate_on_message_for_websocket(
                         es_id,
                         es_websocket_uuid,
                         jde,
-                        message_string,
+                        msg_str,
                     )
                     return
                 # Now decoded to a dictionary if we get here...
                 msg_dict["ess_ordinal"] = message_context.offset
                 msg_dict["ess_timestamp"] = message_context.timestamp
-                message_string = json.dumps(msg_dict)
+                msg_str = json.dumps(msg_dict)
             else:
                 # The EventStream Service is permitted to append to the protobuf string
                 # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
-                message_string += f"|ordinal: {message_context.offset}"
-                message_string += f"|timestamp: {message_context.timestamp}"
+                msg_str += f"|ordinal: {message_context.offset}"
+                msg_str += f"|timestamp: {message_context.timestamp}"
 
             try:
                 # Pass on and count
                 _LOGGER.info("SENDING %s", message_context.offset)
-                await websocket.send_text(message_string)
+                await websocket.send_text(msg_str)
                 _LOGGER.info("SENT %s", message_context.offset)
                 message_stats[_MESSAGE_STATS_KEY_SENT] = (
                     message_stats[_MESSAGE_STATS_KEY_SENT] + 1
