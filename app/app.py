@@ -232,7 +232,7 @@ async def event_stream(
     if x_streamfromdatetime:
         num_stream_from_specified += 1
         try:
-            _LOGGER.info("X-StreamFromDatetime=%s", x_streamfromdatetime)
+            _LOGGER.info("Found X-StreamFromDatetime=%s", x_streamfromdatetime)
             from_datetime = parse(x_streamfromdatetime)
             # We need a RabbitMQ stream timestamp,
             # which is milliseconds since the universal time epoch (1 Jan, 1970).
@@ -245,7 +245,7 @@ async def event_stream(
             header_value_error = True
             header_value_error_msg = "Unable to parse X-StreamFromDatetime value"
     if x_streamfromordinal:
-        _LOGGER.info("X-StreamFromOrdinal=%s", x_streamfromordinal)
+        _LOGGER.info("Found X-StreamFromOrdinal=%s", x_streamfromordinal)
         num_stream_from_specified += 1
         try:
             from_ordinal = int(x_streamfromordinal)
@@ -256,7 +256,7 @@ async def event_stream(
             header_value_error = True
             header_value_error_msg = "X-StreamFromOrdinal must be an integer"
     if x_streamfromtimestamp:
-        _LOGGER.info("X-StreamFromTimestamp=%s", x_streamfromtimestamp)
+        _LOGGER.info("Found X-StreamFromTimestamp=%s", x_streamfromtimestamp)
         num_stream_from_specified += 1
         try:
             from_timestamp = int(x_streamfromtimestamp)
