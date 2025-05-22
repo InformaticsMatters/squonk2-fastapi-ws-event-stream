@@ -332,15 +332,22 @@ async def event_stream(
     # That's fine - the on_message_for_websocket() function will notice this
     # on the next message and should shut itself down.
     new_socket_uuid: str = str(python_uuid.uuid4())
-    _LOGGER.info("Assigning connection ID %s to %s...", new_socket_uuid, es_id)
+    _LOGGER.info(
+        "Assigned connection ID /%s/ to %s (uuid=%s)", new_socket_uuid, es_id, uuid
+    )
     existing_socket_uuid: bytes = _MEMCACHED_CLIENT.get(es_routing_key)
     if existing_socket_uuid and existing_socket_uuid.decode("utf-8") != new_socket_uuid:
-        _LOGGER.warning("Replacing existing connection ID with ours for %s", es_id)
+        _LOGGER.warning(
+            "This replaces connection ID %s for %s (uuid=%s)",
+            existing_socket_uuid.decode("utf-8"),
+            es_id,
+            uuid,
+        )
     _MEMCACHED_CLIENT.set(es_routing_key, new_socket_uuid)
 
     # Start consuming the stream.
     # We don't return from here until there's an error.
-    _LOGGER.debug("Consuming %s...", es_id)
+    _LOGGER.debug("Consuming %s /%s/...", es_id, new_socket_uuid)
     await _consume(
         consumer,
         es_id=es_id,
@@ -361,9 +368,11 @@ async def event_stream(
         # We don't care - we have to just get out of here
         # so errors in tear-down have to be ignored,
         # and there's no apparent way to know whether calling 'close()' is safe.
-        _LOGGER.debug("Ignoring RuntimeError from close() for %s", es_id)
+        _LOGGER.debug(
+            "Ignoring RuntimeError from close() for %s /%s/", es_id, new_socket_uuid
+        )
 
-    _LOGGER.info("Closed WebSocket for %s (uuid=%s)", es_id, uuid)
+    _LOGGER.info("Closed WebSocket for %s /%s/ (uuid=%s)", es_id, new_socket_uuid, uuid)
 
 
 async def generate_on_message_for_websocket(
@@ -423,14 +432,16 @@ async def generate_on_message_for_websocket(
             shutdown = True
         elif stream_socket_uuid.decode("utf-8") != es_websocket_uuid:
             _LOGGER.info(
-                "There is a new consumer of %s (%s), and it is not us (%s) (stopping)...",
+                "There is a new consumer of %s /%s/, and it is not us /%s/ (stopping)...",
                 es_id,
                 stream_socket_uuid.decode("utf-8"),
                 es_websocket_uuid,
             )
             shutdown = True
         elif msg == b"POISON":
-            _LOGGER.info("Taking POISON for %s (stopping)...", es_id)
+            _LOGGER.info(
+                "Taking POISON for %s /%s/ (stopping)...", es_id, es_websocket_uuid
+            )
             shutdown = True
         elif msg:
             # We know the AMQPMessage (as a string will start "b'" and end "'"
@@ -454,19 +465,27 @@ async def generate_on_message_for_websocket(
                     message_stats[_MESSAGE_STATS_KEY_SENT] + 1
                 )
             except WebSocketDisconnect:
-                _LOGGER.info("Got WebSocketDisconnect for %s (stopping)...", es_id)
+                _LOGGER.info(
+                    "Got WebSocketDisconnect for %s /%s/ (stopping)...",
+                    es_id,
+                    es_websocket_uuid,
+                )
                 shutdown = True
 
-        _LOGGER.debug("Handled msg for %s...", es_id)
+        _LOGGER.debug("Handled msg for %s /%s/...", es_id, es_websocket_uuid)
 
         # Consider regular INFO summary.
         # Stats will ultimately be produced if the socket closes,
         # so we just have to consider regular updates here.
         if num_messages_received % _MESSAGE_STATS_INTERVAL == 0:
-            _LOGGER.info("Message stats for %s: %s", es_id, message_stats)
+            _LOGGER.info(
+                "Message stats for %s /%s/: %s", es_id, es_websocket_uuid, message_stats
+            )
 
         if shutdown:
-            _LOGGER.info("Stopping consumer for %s (shutdown)...", es_id)
+            _LOGGER.info(
+                "Stopping consumer for %s /%s/ (shutdown)...", es_id, es_websocket_uuid
+            )
             message_context.consumer.stop()
 
     return on_message_for_websocket
@@ -501,13 +520,14 @@ async def _consume(
     )
 
     _LOGGER.info(
-        "Starting consumer %s (offset type=%s offset=%s)...",
+        "Starting consumer %s /%s/ (offset type=%s offset=%s)...",
         es_id,
+        es_websocket_uuid,
         offset_specification.offset_type.name,
         offset_specification.offset,
     )
     await consumer.start()
-    _LOGGER.info("Subscribing %s...", es_id)
+    _LOGGER.info("Subscribing %s /%s/...", es_id, es_websocket_uuid)
     subscribed: bool = True
     try:
         await consumer.subscribe(
@@ -521,13 +541,18 @@ async def _consume(
         subscribed = False
 
     if subscribed:
-        _LOGGER.info("Running %s...", es_id)
+        _LOGGER.info("Running %s /%s/...", es_id, es_websocket_uuid)
         await consumer.run()
-        _LOGGER.info("Stopped %s (closing)...", es_id)
+        _LOGGER.info("Stopped %s /%s/ (closing)...", es_id, es_websocket_uuid)
         await consumer.close()
-        _LOGGER.info("Closed %s (message_stats=%s)", es_id, message_stats)
+        _LOGGER.info("Closed %s /%s/", es_id, es_websocket_uuid)
 
-    _LOGGER.info("Stopped consuming %s (message_stats=%s)", es_id, message_stats)
+    _LOGGER.info(
+        "Stopped consuming %s /%s/ (message_stats=%s)",
+        es_id,
+        es_websocket_uuid,
+        message_stats,
+    )
 
 
 # Endpoints for the 'internal' event-stream management API -----------------------------
