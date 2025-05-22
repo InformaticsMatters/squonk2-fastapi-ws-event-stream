@@ -452,19 +452,29 @@ async def generate_on_message_for_websocket(
             message_string = str(msg)[2:-1]
             _LOGGER.info("TRIMMED %s", message_context.offset)
             if message_string[0] != "{":
-                _LOGGER.info("IS JSON %s", message_context.offset)
+                _LOGGER.info("IS PROTOBUF %s", message_context.offset)
                 # The EventStream Service is permitted to append to the protobuf string
                 # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
                 message_string += f"|ordinal: {message_context.offset}"
                 message_string += f"|timestamp: {message_context.timestamp}"
             else:
-                _LOGGER.info("IS PROTOBUF %s", message_context.offset)
+                _LOGGER.info("IS JSON %s", message_context.offset)
                 # The EventStream Service is permitted to append to the JSON string
                 # as long as it uses keys with the prefix "ess_"
-                msg_dict: dict[str, Any] = json.loads(message_string)
+                try:
+                    msg_dict: dict[str, Any] = json.loads(message_string)
+                except Exception as ex:  # pylint: disable=broad-exception-caught
+                    _LOGGER.info(
+                        "LOADS() EXCEPTION %s (%s)", message_context.offset, ex
+                    )
                 msg_dict["ess_ordinal"] = message_context.offset
                 msg_dict["ess_timestamp"] = message_context.timestamp
-                message_string = json.dumps(msg_dict)
+                try:
+                    message_string = json.dumps(msg_dict)
+                except Exception as ex:  # pylint: disable=broad-exception-caught
+                    _LOGGER.info(
+                        "DUMPS() EXCEPTION %s (%s)", message_context.offset, ex
+                    )
             try:
                 # Pass on and count
                 _LOGGER.info("SENDING %s", message_context.offset)
