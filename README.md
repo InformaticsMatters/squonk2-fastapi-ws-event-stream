@@ -219,22 +219,48 @@ stream's **LOCATION**.
 If you do not provide any header value your socket will only deliver new events.
 
 You can select the start of your events buy providing either an **ordinal**,
-**timestamp**, or **datetime** string.
+**timestamp**, or **datetime** string. The first event delivered will the next
+event after the given reference. For example, if you provide **ordinal** `100`
+the next event you can expect to receive is an event with **ordinal** `101`.
 
-To stream from a specific **ordinal** (**offset**), provide it as the numerical value
-of the header property `X-StreamOffsetFromOrdinal`.
+-   To stream from a specific **ordinal** (**offset**), provide it as the numerical value
+    of the header property `X-StreamOffsetFromOrdinal`.
 
-To stream from a specific **timestamp**, provide it as the numerical value
-of the header property `X-StreamOffsetFromTimestamp`.
+-   To stream from a specific **timestamp**, provide it as the numerical value
+    of the header property `X-StreamOffsetFromTimestamp`.
 
-To stream from a specific **datetime**, provide the date/time string as the value
-of the header property `X-StreamOffsetFromDatetime`. The datetime string is extremely
-flexible and is interpreted by the **python-dateutil** package's `parse` function.
-UTC is used as the reference for messages and the string will be interpreted as a
-UTC value if it has no timezone specification. For example, if you are in CEST and
-it is `13:33` and you want to retrieve times from 13:33 (local time) then you will need
-to provide a **datetime** string value that has the time set to
-`11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`
+-   To stream from a specific **datetime**, provide the date/time string as the value
+    of the header property `X-StreamOffsetFromDatetime`. The datetime string is extremely
+    flexible and is interpreted by the **python-dateutil** package's `parse` function.
+    UTC is used as the reference for messages and the string will be interpreted as a
+    UTC value if it has no timezone specification. For example, if you are in CEST and
+    it is `13:33` and you want to retrieve times from 13:33 (local time) then you will need
+    to provide a **datetime** string value that has the time set to
+    `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`
+
+You can only provide one type of historical reference. If you provide a header
+value for `X-StreamOffsetFromOrdinal` for example, you cannot also provide
+a value for `X-StreamOffsetFromTimestamp`.
+
+## Stream storage
+The Account Server (AS) relies on [RabbitMQ] for its event streaming service,
+ans storage capacity for each stream is configured by the AS. Importantly events
+are not retained indefinitely, and typically only for a few days. Consequently,
+if you disconnect from an event stream for a long period of time any **ordinal**
+you have kept may not me valid.
+
+You will know that you have lost messages if you keep a record of the last
+message **ordinal** you received. If you received **ordinal** `100` and then
+reconnect with an `X-StreamOffsetFromOrdinal` value of `100`, and your first message
+has the **ordinal** `150` you can assume that 49 messages have been lost.
+
+Having said all this the AS stream storage configuration is generous and, depending
+on event message size, should be able to retain events for several days.
+
+>   Remember that recording **ordinals** (or ***timestamps**) for every message you
+    receive may not be practical, especially if you are storing these values in a
+    file or database. You might instead record message references in _blocks_ of
+    100, or 1000.
 
 ---
 
@@ -244,4 +270,5 @@ to provide a **datetime** string value that has the time set to
 [event streams]: https://gitlab.com/informaticsmatters/squonk2-account-server/-/wikis/event-streams
 [fastapi]: https://fastapi.tiangolo.com
 [pre-commit]: https://pre-commit.com
-[poetry]: https://python-poetry.org/
+[poetry]: https://python-poetry.org
+[rabbitmq]: https://www.rabbitmq.com
