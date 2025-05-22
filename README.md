@@ -181,10 +181,10 @@ RabbitMQ Topic Queue.
 Version 2 uses the `rstream` package and relies on a RabbitMQ stream.
 
 Version 2 also extends messages prior to forwarding them to their socket clients.
-It does this by appending the messages's **offset** in the stream (an `integer`,
-which we refer to as an **ordinal**)), and the message's **timestamp** (also an `integer`),
-both of which are provided by the backing RabbitMQ stream as the messages are received
-by the Event Stream's consumer. The **offset** can be used as a unique message identifier.
+It does this by appending the messages's **ordinal** (an `integer`, its _offset_ in the
+stream), and  **timestamp** (also an `integer`), both of which are provided by the
+backing RabbitMQ stream as the messages are received.
+The **ordinal** can be used as a unique message identifier.
 
 When received as a protobuf string the values are appended to the end of the original
 message using `|` as a delimiter. Here is an example, with the message split at the
@@ -192,15 +192,15 @@ delimiter for clarity: -
 
     accountserver.MerchantProcessingCharge
     |timestamp: "2025-04-30T19:20:37.926+00:00" merchant_kind: "DATA_MANAGER" [...]
-    |offset: 2
+    |ordinal: 2
     |timestamp: 1746042171620
 
 JSON strings will have these values added to the received dictionary using the
-keys `ess_offset` and `ess_timestamp`, again, displayed here over several lines
+keys `ess_ordinal` and `ess_timestamp`, again, displayed here over several lines
 for clarity: -
 
     {
-        "ess_offset": 2,
+        "ess_ordinal": 2,
         "ess_timestamp": 1746042171620,
         "message_type": "accountserver.MerchantProcessingCharge",
         "message_body": {
@@ -223,7 +223,7 @@ You can select the start of your events buy providing either an **ordinal**,
 event after the given reference. For example, if you provide **ordinal** `100`
 the next event you can expect to receive is an event with **ordinal** `101`.
 
--   To stream from a specific **ordinal** (**offset**), provide it as the numerical value
+-   To stream from a specific **ordinal**, provide it as the numerical value
     of the header property `X-StreamOffsetFromOrdinal`.
 
 -   To stream from a specific **timestamp**, provide it as the numerical value
@@ -231,12 +231,12 @@ the next event you can expect to receive is an event with **ordinal** `101`.
 
 -   To stream from a specific **datetime**, provide the date/time string as the value
     of the header property `X-StreamOffsetFromDatetime`. The datetime string is extremely
-    flexible and is interpreted by the **python-dateutil** package's `parse` function.
-    UTC is used as the reference for messages and the string will be interpreted as a
-    UTC value if it has no timezone specification. For example, if you are in CEST and
-    it is `13:33` and you want to retrieve times from 13:33 (local time) then you will need
-    to provide a **datetime** string value that has the time set to
-    `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`
+    flexible and is interpreted by the [python-dateutil] package's `parse` function.
+    UTC is used as the reference for messages, and the string will be interpreted as a
+    UTC value if it has no timezone specification. If you are in CEST for example, and
+    it is `13:33`, and you want to retrieve times from 13:33 (local time), then you
+    will need to provide a string value that has the date you are interested in,
+    ans the time set to `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`.
 
 You can only provide one type of historical reference. If you provide a header
 value for `X-StreamOffsetFromOrdinal` for example, you cannot also provide
@@ -271,4 +271,5 @@ on event message size, should be able to retain events for several days.
 [fastapi]: https://fastapi.tiangolo.com
 [pre-commit]: https://pre-commit.com
 [poetry]: https://python-poetry.org
+[python-dateutil]: https://github.com/dateutil/dateutil
 [rabbitmq]: https://www.rabbitmq.com

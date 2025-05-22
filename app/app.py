@@ -424,13 +424,13 @@ async def generate_on_message_for_websocket(
             if message_string[0] != "{":
                 # The EventStream Service is permitted to append to the protobuf string
                 # as long as it uses the '|' delimiter. Here qwe add offset and timestamp.
-                message_string += f"|offset: {message_context.offset}"
+                message_string += f"|ordinal: {message_context.offset}"
                 message_string += f"|timestamp: {message_context.timestamp}"
             else:
                 # The EventStream Service is permitted to append to the JSON string
                 # as long as it uses keys with the prefix "ess_"
                 msg_dict: dict[str, Any] = json.loads(message_string)
-                msg_dict["ess_offset"] = message_context.offset
+                msg_dict["ess_ordinal"] = message_context.offset
                 msg_dict["ess_timestamp"] = message_context.timestamp
                 message_string = json.dumps(msg_dict)
             try:
