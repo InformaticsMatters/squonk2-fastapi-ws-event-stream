@@ -411,11 +411,11 @@ async def generate_on_message_for_websocket(
         #              It's essentially time.time() x 1000
         r_stream = message_context.consumer.get_stream(message_context.subscriber_name)
         _LOGGER.debug(
-            "Got msg=%s stream=%s es_id=%s /%s/",
-            msg,
+            "Handling message stream=%s es_id=%s /%s/ msg=%s",
             r_stream,
             es_id,
             es_websocket_uuid,
+            msg,
         )
         _LOGGER.debug(
             "With offset=%s timestamp=%s /%s/",
@@ -426,7 +426,23 @@ async def generate_on_message_for_websocket(
         # Update message received count
         num_messages_received: int = message_stats[_MESSAGE_STATS_KEY_RECEIVED] + 1
         message_stats[_MESSAGE_STATS_KEY_RECEIVED] = num_messages_received
-        _LOGGER.info("COUNTED %s", message_context.offset)
+
+        # At the time of writing we could not be decoded directly, but we can invoke
+        # its built-in __str__() representation to get the message as a string.
+        # As a result we get a series of bytes represented as a string (e.g. "b'xyz'").
+        # With this we can eval() it to get _real_ bytes and then decode it
+        # (we know it's utf-8) in order to get the message as a string! :-O
+        try:
+            msg_str = eval(str(msg)).decode("utf-8")  # pylint: disable=eval-used
+        except Exception as ex:  # pylint: disable=broad-exception-caught
+            _LOGGER.error(
+                "Exception trying to decode message for %s /%s/ msg=%s (%s)",
+                es_id,
+                es_websocket_uuid,
+                msg,
+                ex,
+            )
+            return
 
         shutdown: bool = False
         # We shutdown if...
@@ -446,26 +462,13 @@ async def generate_on_message_for_websocket(
                 es_websocket_uuid,
             )
             shutdown = True
-        elif msg == b"POISON":
+        elif msg_str == "POISON":
             _LOGGER.info(
                 "Taking POISON for %s /%s/ (stopping)...", es_id, es_websocket_uuid
             )
             shutdown = True
-        elif msg:
-            _LOGGER.info("PREPARING %s", message_context.offset)
-            # At the time of writing it seemed as though the msg (an AMQPMessage)
-            # could not be decoded directly, but we can invoke its built-in __str__()
-            # representation to get the message as a string. We get a series of bytes
-            # represented as a string (e.g. "b'xyz'"). With this we can eval() it
-            # to get _real_ bytes and then decode it (assuming it to be utf-8)
-            # in order to get the message as a string! :-O
-            try:
-                msg_str = eval(str(msg)).decode("utf-8")  # pylint: disable=eval-used
-            except Exception as ex:  # pylint: disable=broad-exception-caught
-                _LOGGER.error("Exception trying to decode message %s", ex)
-            _LOGGER.info("TRIMMED %s", message_context.offset)
+        elif msg_str:
             if msg_str[0] == "{":
-                _LOGGER.info("IS JSON %s", message_context.offset)
                 # The EventStream Service is permitted to append to the JSON string
                 # as long as it uses keys with the prefix "ess_"
                 try:
@@ -474,7 +477,7 @@ async def generate_on_message_for_websocket(
                     json.decoder.JSONDecodeError
                 ) as jde:  # pylint: disable=broad-exception-caught
                     _LOGGER.error(
-                        "JSONDecodeError for offset %s on %s /%s/ '%s' (skipping) message=%s",
+                        "JSONDecodeError for offset %s on %s /%s/ '%s' (skipping) msg_str=%s",
                         message_context.offset,
                         es_id,
                         es_websocket_uuid,
@@ -494,9 +497,7 @@ async def generate_on_message_for_websocket(
 
             try:
                 # Pass on and count
-                _LOGGER.info("SENDING %s", message_context.offset)
                 await websocket.send_text(msg_str)
-                _LOGGER.info("SENT %s", message_context.offset)
                 message_stats[_MESSAGE_STATS_KEY_SENT] = (
                     message_stats[_MESSAGE_STATS_KEY_SENT] + 1
                 )
@@ -508,7 +509,7 @@ async def generate_on_message_for_websocket(
                 )
                 shutdown = True
 
-        _LOGGER.debug("Handled msg for %s /%s/...", es_id, es_websocket_uuid)
+        _LOGGER.debug("Handled message for %s /%s/...", es_id, es_websocket_uuid)
 
         # Consider regular INFO summary.
         # Stats will ultimately be produced if the socket closes,
