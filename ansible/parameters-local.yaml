@@ -1,0 +1,14 @@
+---
+
+ess_namespace: im-account-server
+ess_image_tag: "{{ lookup('env', 'IM_DEV_ESS_IMAGE_TAG') | default('2.0.0', True) }}"
+ess_service_account: account-server
+ess_ws_hostname: account-server-ess
+ess_cert_issuer:
+
+r_user: "{{ lookup('env', 'IM_DEV_ESS_STREAM_USER') | default('eventstream', True) }}"
+r_password: "{{ lookup('env', 'IM_DEV_ESS_STREAM_PASSWORD') }}"
+
+ess_ampq_url: amqp://{{ r_user }}:{{ r_password }}@rabbitmq.im-infra.svc.cluster.local:5672/as?heartbeat=90
+
+ess_pull_policy_always: yes
