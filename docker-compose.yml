@@ -21,6 +21,11 @@ services:
     - type: bind
       source: ./rabbitmq-enabled-plugins
       target: /config
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 10
 
   memcached:
     image: memcached:1.6.38-alpine3.21
@@ -49,6 +54,6 @@ services:
     - '8081:8081'
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       memcached:
         condition: service_started
