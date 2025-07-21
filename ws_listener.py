@@ -11,19 +11,20 @@ from simple_websocket import Client, ConnectionClosed
 
 def main(c_args: argparse.Namespace):
     """Connect to the WebSocket and just read messages."""
-    headers = {}
+    params = ""
     if c_args.datetime_offset:
-        headers["X-StreamFromDatetime"] = c_args.datetime_offset
+        params = f"?stream_from_datetime={c_args.datetime_offset}"
     elif c_args.timestamp_offset:
-        headers["X-StreamFromTimestamp"] = c_args.timestamp_offset
+        params = f"?stream_from_timestamp={c_args.timestamp_offset}"
     elif c_args.ordinal_offset:
-        headers["X-StreamFromOrdinal"] = c_args.ordinal_offset
+        params = f"?stream_from_ordinal={c_args.ordinal_offset}"
 
     total_bytes = 0
     total_messages = 0
     min_bytes = 1_000_000
     max_bytes = 0
-    ws = Client.connect(c_args.location, headers=headers)
+    url = f"{c_args.location}{params}"
+    ws = Client.connect(url)
     try:
         while True:
 

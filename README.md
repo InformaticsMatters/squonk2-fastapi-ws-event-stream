@@ -212,28 +212,32 @@ for clarity: -
         }
     }
 
+## Version 3
+Version 3 uses **params** for the specification of historical events. Version 2
+used header values to provide these values.
+
 ## Connecting to sockets (historical events)
 The streaming service keeps historical events based on a maximum age and file size.
 Consequently you can connect to your websocket and retrieve these historical events
 as long as they remain in the backend streaming queue. You identify the
-start-time of your events by using **headers** in the websocket request for your
+start-time of your events by using **params** in the websocket request for your
 stream's **LOCATION**.
 
-If you do not provide any header value your socket will only deliver new events.
+If you do not provide any value your socket will only deliver new events.
 
 You can select the start of your events buy providing either an **ordinal**,
-**timestamp**, or **datetime** string. The first event delivered will the next
+**timestamp**, or **datetime**. The first event delivered will be the next
 event after the given reference. For example, if you provide **ordinal** `100`,
 the next event you can expect to receive is an event with **ordinal** `101`.
 
 -   To stream from a specific **ordinal**, provide it as the numerical value
-    of the header property `X-StreamOffsetFromOrdinal`.
+    of the request parameter  `stream_from_ordinal`.
 
 -   To stream from a specific **timestamp**, provide it as the numerical value
-    of the header property `X-StreamOffsetFromTimestamp`.
+    of the request parameter  `stream_from_timestamp`.
 
 -   To stream from a specific **datetime**, provide the date/time string as the value
-    of the header property `X-StreamOffsetFromDatetime`. The datetime string is extremely
+    of the request parameter  `stream_from_datetime`. The datetime string is extremely
     flexible and is interpreted by the [python-dateutil] package's `parse` function.
     UTC is used as the reference for messages, and the string will be interpreted as a
     UTC value if it has no timezone specification. If you are in CEST for example, and
@@ -241,9 +245,9 @@ the next event you can expect to receive is an event with **ordinal** `101`.
     will need to provide a string value that has the date you are interested in,
     ans the time set to `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`.
 
-You can only provide one type of historical reference. If you provide a header
-value for `X-StreamOffsetFromOrdinal` for example, you cannot also provide
-a value for `X-StreamOffsetFromTimestamp`.
+You can only provide one type of historical reference. If you provide a
+value for `stream_from_ordinal` for example, you cannot also provide
+a value for `stream_from_timestamp`.
 
 ## Stream storage
 The Account Server (AS) relies on [RabbitMQ] for its event streaming service,
@@ -255,7 +259,7 @@ will just deliver the first event it has available.
 
 You will know that you have lost messages if you keep a record of the most recent
 message **ordinal**. If you received **ordinal** `100` and then, some time later,
-re-connect using an `X-StreamOffsetFromOrdinal` value of `100`, and the first message
+re-connect using an `stream_from_ordinal` value of `100`, and the first message
 your receive has the **ordinal** `150` then you can assume 49 messages have been lost.
 
 Having said all this the AS stream storage configuration is generous and, depending

@@ -7,14 +7,13 @@ import sqlite3
 import time
 import uuid as python_uuid
 from logging.config import dictConfig
-from typing import Annotated, Any
+from typing import Any
 from urllib.parse import ParseResult, urlparse
 
 import shortuuid
 from dateutil.parser import parse
 from fastapi import (
     FastAPI,
-    Header,
     HTTPException,
     WebSocket,
     WebSocketDisconnect,
@@ -195,9 +194,9 @@ class EventStreamGetResponse(BaseModel):
 async def event_stream(
     websocket: WebSocket,
     uuid: str,
-    x_streamfromdatetime: Annotated[str | None, Header()] = None,
-    x_streamfromordinal: Annotated[str | None, Header()] = None,
-    x_streamfromtimestamp: Annotated[str | None, Header()] = None,
+    stream_from_datetime: str | None = None,
+    stream_from_ordinal: int | None = None,
+    stream_from_timestamp: int | None = None,
 ):
     """The websocket handler for the event-stream.
     The UUID is returned to the AS when the web-socket is created
@@ -213,14 +212,13 @@ async def event_stream(
     await websocket.accept()
     _LOGGER.info("Accepted connection (uuid=%s)", uuid)
 
-    # Custom request headers.
-    # The following are used to identify the first event in a stream: -
+    # The following parameters are used to identify the first event in a stream: -
     #
-    #   X-StreamFromDatetime - an ISO8601 date/time string
-    #   X-StreamFromTimestamp - an event timestamp (integer) from a prior message
-    #   X-StreamFromOrdinal - a message ordinal (integer 0..N)
+    #   stream_from_datetime - an ISO8601 date/time string
+    #   stream_from_ordinal - a message ordinal (integer 0..N)
+    #   stream_from_timestamp - an event timestamp (integer) from a prior message
     #
-    # Only one of the above is expected.
+    # Only one of the above is permitted.
     num_stream_from_specified: int = 0
     header_value_error: bool = False
     header_value_error_msg: str = ""
@@ -229,11 +227,11 @@ async def event_stream(
         OffsetType.NEXT
     )
     # Was a streaming offset provided?
-    if x_streamfromdatetime:
+    if stream_from_datetime:
         num_stream_from_specified += 1
         try:
-            _LOGGER.info("Found X-StreamFromDatetime=%s", x_streamfromdatetime)
-            from_datetime = parse(x_streamfromdatetime)
+            _LOGGER.info("Given stream_from_datetime=%s", stream_from_datetime)
+            from_datetime = parse(stream_from_datetime)
             # We need a RabbitMQ stream timestamp,
             # which is milliseconds since the universal time epoch (1 Jan, 1970).
             # It's easy to get 'seconds', which we multiply by 1,000
@@ -243,34 +241,34 @@ async def event_stream(
             )
         except:  # pylint: disable=bare-except
             header_value_error = True
-            header_value_error_msg = "Unable to parse X-StreamFromDatetime value"
-    if x_streamfromordinal:
-        _LOGGER.info("Found X-StreamFromOrdinal=%s", x_streamfromordinal)
+            header_value_error_msg = "Unable to parse stream_from_datetime value"
+    if stream_from_ordinal:
+        _LOGGER.info("Given stream_from_ordinal=%d", stream_from_ordinal)
         num_stream_from_specified += 1
         try:
-            from_ordinal = int(x_streamfromordinal)
+            from_ordinal = int(stream_from_ordinal)
             offset_specification = ConsumerOffsetSpecification(
                 OffsetType.OFFSET, from_ordinal
             )
         except ValueError:
             header_value_error = True
-            header_value_error_msg = "X-StreamFromOrdinal must be an integer"
-    if x_streamfromtimestamp:
-        _LOGGER.info("Found X-StreamFromTimestamp=%s", x_streamfromtimestamp)
+            header_value_error_msg = "stream_from_ordinal must be an integer"
+    if stream_from_timestamp:
+        _LOGGER.info("Found stream_from_timestamp=%s", stream_from_timestamp)
         num_stream_from_specified += 1
         try:
-            from_timestamp = int(x_streamfromtimestamp)
+            from_timestamp = int(stream_from_timestamp)
             offset_specification = ConsumerOffsetSpecification(
                 OffsetType.TIMESTAMP, from_timestamp
             )
         except ValueError:
             header_value_error = True
-            header_value_error_msg = "X-StreamFromTimestamp must be an integer"
+            header_value_error_msg = "stream_from_timestamp must be an integer"
 
     # Replace any error with a 'too many values provided' error if necessary
     if num_stream_from_specified > 1:
         header_value_error = True
-        header_value_error_msg = "Cannot provide more than one X-StreamFrom variable"
+        header_value_error_msg = "Cannot provide more than one 'stream_from_' variable"
 
     if header_value_error:
         await websocket.close(
