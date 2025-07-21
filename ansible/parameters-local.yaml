@@ -1,7 +1,7 @@
 ---
 
 ess_namespace: im-account-server
-ess_image_tag: "{{ lookup('env', 'IM_DEV_ESS_IMAGE_TAG') | default('2.0.0', True) }}"
+ess_image_tag: "{{ lookup('env', 'IM_DEV_ESS_IMAGE_TAG') | default('3.0.0', True) }}"
 ess_service_account: account-server
 ess_ws_hostname: account-server-ess
 ess_cert_issuer:
