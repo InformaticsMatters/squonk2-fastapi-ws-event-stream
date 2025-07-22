@@ -212,6 +212,26 @@ for clarity: -
         }
     }
 
+-   The `"timestamp"` in the `"message_body"` is the date/time and timezone string
+    representation of the time the message was created (in the merchant or AS).
+    Every message will contain a timestamp value.
+
+-   The `"ess_timestamp"` is a RabbitMQ-generated numerical value.
+    it is not necessarily the same as the message `"timestamp"`.
+
+-   The `"ess_ordinal"` is a unique increasing value that represents the position of
+    the message in the underlying RabbitMQ stream in which is held.
+
+To distinguish between "old" and "new" messages you should use either the
+`"ess_ordinal"` or `"ess_timestamp"`, they are guaranteed monotonic.
+Consecutive messages may not have increasing `"timestamp"` values but they will have
+increasing `"ess_timestamp"` and increasing `"ordinal"` values. This is because the DM
+and AS both generate messages that you might see. Even if their clocks are synchronised
+the DM messages have to pass through a queue and socket (and transmission is not
+instantaneous) so you can expect messages to be delayed with respect to those generated
+on the AS. To guarantee not miss a message you must use the `"ordinal"`.
+If you cannot, use the `"ess_timestamp"`.
+
 ## Version 3
 Version 3 uses **params** for the specification of historical events. Version 2
 used header values to provide these values.
@@ -243,7 +263,8 @@ the next event you can expect to receive is an event with **ordinal** `101`.
     UTC value if it has no timezone specification. If you are in CEST for example, and
     it is `13:33`, and you want to retrieve times from 13:33 (local time), then you
     will need to provide a string value that has the date you are interested in,
-    ans the time set to `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`.
+    and the time set to `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`.
+    The value is translated to the nearest approximate `timestamp` value.
 
 You can only provide one type of historical reference. If you provide a
 value for `stream_from_ordinal` for example, you cannot also provide
