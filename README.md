@@ -213,14 +213,16 @@ for clarity: -
     }
 
 -   The `"timestamp"` in the `"message_body"` is the date/time and timezone string
-    representation of the time the message was created (in the merchant or AS).
+    representation of the time the message was created (in the Merchant or AS).
     Every message will contain a timestamp value.
 
 -   The `"ess_timestamp"` is a RabbitMQ-generated numerical value.
     it is not necessarily the same as the message `"timestamp"`.
+    It is a measurement of milliseconds since the universal time epoch (1 Jan, 1970).
 
 -   The `"ess_ordinal"` is a unique increasing value that represents the position of
-    the message in the underlying RabbitMQ stream in which is held.
+    the message in the underlying RabbitMQ stream in which is held with the first message
+    in the stream having an offset of `1`.
 
 To distinguish between "old" and "new" messages you should use either the
 `"ess_ordinal"` or `"ess_timestamp"`, they are guaranteed monotonic.
@@ -251,10 +253,12 @@ event after the given reference. For example, if you provide **ordinal** `100`,
 the next event you can expect to receive is an event with **ordinal** `101`.
 
 -   To stream from a specific **ordinal**, provide it as the numerical value
-    of the request parameter  `stream_from_ordinal`.
+    of the request parameter  `stream_from_ordinal`. Passing in a value of `0`
+    will ensure you receive the first message in the stream (which has an ordinal of `1`)
 
 -   To stream from a specific **timestamp**, provide it as the numerical value
-    of the request parameter  `stream_from_timestamp`.
+    of the request parameter  `stream_from_timestamp`. It is interpreted
+    as a measurement of milliseconds since the universal time epoch (1 Jan, 1970).
 
 -   To stream from a specific **datetime**, provide the date/time string as the value
     of the request parameter  `stream_from_datetime`. The datetime string is extremely
@@ -264,7 +268,7 @@ the next event you can expect to receive is an event with **ordinal** `101`.
     it is `13:33`, and you want to retrieve times from 13:33 (local time), then you
     will need to provide a string value that has the date you are interested in,
     and the time set to `11:33` (the UTC time for 13:33 CEST) or specify `13:33+02:00`.
-    The value is translated to the nearest approximate `timestamp` value.
+    Internally, the value is translated to the nearest approximate `timestamp` value.
 
 You can only provide one type of historical reference. If you provide a
 value for `stream_from_ordinal` for example, you cannot also provide
