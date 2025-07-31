@@ -19,6 +19,9 @@ ess_ws_hostname: SetMe
 ess_ampq_url: SetMe
 # What image tag do you want to deploy?
 ess_image_tag: SetMe
+# SSL certificate issuer?
+# One of 'production', 'staging' or blank (for no SSL).
+ess_cert_issuer:
 
 # Required with defaults ---------------------------------------------------------------
 

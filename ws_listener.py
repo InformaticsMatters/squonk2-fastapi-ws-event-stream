@@ -5,7 +5,9 @@ Usage: ws_listener.py <location>
 """
 import argparse
 import json
+import ssl
 
+import certifi
 from simple_websocket import Client, ConnectionClosed
 
 
@@ -19,12 +21,20 @@ def main(c_args: argparse.Namespace):
     elif c_args.ordinal_offset:
         params = f"?stream_from_ordinal={c_args.ordinal_offset}"
 
+    # Compensate for observed CERTIFICATE_VERIFY_FAILED errors
+    # when using secure web-sockets
+    context = (
+        ssl.create_default_context(cafile=certifi.where())
+        if c_args.location.startswith("wss:")
+        else None
+    )
+
     total_bytes = 0
     total_messages = 0
     min_bytes = 1_000_000
     max_bytes = 0
     url = f"{c_args.location}{params}"
-    ws = Client.connect(url)
+    ws = Client.connect(url, ssl_context=context)
     try:
         while True:
 

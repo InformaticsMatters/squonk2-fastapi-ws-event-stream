@@ -7,9 +7,6 @@ ess_ingress_class: nginx
 # and typically have 'letsencrypt-nginx-staging'
 # and 'letsencrypt-nginx-production'
 ess_cert_manager_issuer_base: letsencrypt-{{ ess_ingress_class }}
-# SSL certificate issuer?
-# One of 'production', 'staging' or blank (for no SSL).
-ess_cert_issuer:
 
 # memcached image tag
 ess_memcached_tag: 1.6.39-alpine3.22
