@@ -38,7 +38,7 @@ ess_shared_volume_volume_storageclass: ' '
 ess_log_volume_volume_storageclass: ' '
 
 # Pod resource requests and limits
-ess_api_cpu_request: 100m
-ess_api_cpu_limit:
-ess_api_mem_request: 256Mi
-ess_api_mem_limit: 256Mi
+ess_api_cpu_request: 10m
+ess_api_cpu_limit: 1
+ess_api_mem_request: 128Mi
+ess_api_mem_limit: 128Mi
