@@ -15,6 +15,9 @@ ENV APP_ROOT=/home/es
 
 WORKDIR ${APP_ROOT}
 
+# Add tools, like gcc
+RUN apk add build-base
+
 ##################################################################
 #
 # Second stage, poetry installation.
