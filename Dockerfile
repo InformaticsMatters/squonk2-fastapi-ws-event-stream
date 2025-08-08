@@ -16,7 +16,8 @@ ENV APP_ROOT=/home/es
 WORKDIR ${APP_ROOT}
 
 # Add tools, like gcc
-RUN apk add build-base
+RUN apk add --no-cache \
+      build-base
 
 ##################################################################
 #
