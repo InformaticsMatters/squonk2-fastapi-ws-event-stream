@@ -17,7 +17,7 @@ WORKDIR ${APP_ROOT}
 
 # Add tools, like gcc
 RUN apk add --no-cache \
-      build-base=0.5
+      build-base=0.5-r3
 
 ##################################################################
 #
