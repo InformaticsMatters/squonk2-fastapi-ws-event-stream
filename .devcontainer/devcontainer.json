@@ -1,0 +1,60 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "WorkflowEngine DinD Python 3.13",
+	"build": {
+    "dockerfile": "Dockerfile",
+    // Args is one of arm64 or amd64
+    "args": {
+      "PLATFORM": "${localEnv:PLATFORM:arm64}"
+    }
+  },
+	"features": {
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {
+			"moby": true,
+			"azureDnsAutoDetection": true,
+			"installDockerBuildx": true,
+			"installDockerComposeSwitch": true,
+			"version": "latest",
+			"dockerDashComposeVersion": "v2"
+		},
+		"ghcr.io/devcontainers/features/git:1": {
+			"ppa": true,
+			"version": "os-provided"
+		}
+	},
+  // We mount bash history in an attempt to preserver history
+  // between container restarts
+  // (see https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history)
+  //
+  // The user will also need a ~/k8s-config directory (kubernetes config files)
+  "mounts": [
+      "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached",
+      "source=${localEnv:HOME}/k8s-config,target=/k8s-config,type=bind,consistency=cached",
+      "source=projectname-bashhistory,target=/commandhistory,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "codezombiech.gitignore",
+        "donjayamanne.githistory",
+        "donjayamanne.git-extension-pack",
+        "eamodio.gitlens",
+        "github.vscode-github-actions",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "ms-python.vscode-pylance",
+        "sourcery.sourcery",
+        "streetsidesoftware.code-spell-checker",
+        "trond-snekvik.simple-rst",
+        "vivaxy.vscode-conventional-commits",
+        "yzhang.markdown-all-in-one"
+      ]
+    }
+  },
+  "postCreateCommand": {
+		"Install Python requirements": "pip3 install --user -r requirements.txt",
+		"Install Pre-Commit": "pre-commit install -t commit-msg -t pre-commit",
+    "Fix Volume Permissions": "sudo chown -R $(whoami): /commandhistory"
+	},
+  "forwardPorts": []
+}

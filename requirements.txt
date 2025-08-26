@@ -1,0 +1,5 @@
+# Requirements file for the dev-container
+ansible >= 11.2.0
+kubernetes == 31.0.0
+poetry == 1.8.5
+pre-commit == 4.3.0
