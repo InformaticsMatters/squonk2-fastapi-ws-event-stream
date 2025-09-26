@@ -17,7 +17,7 @@ repos:
 # pre-commit hooks
 # ----------
 
-# Hooks that actively "change" files (formatters etc.)
+# Hooks that actively "ch.ange" files (formatters etc.)
 # ----------------------------------
 
 # Standard pre-commit rules
