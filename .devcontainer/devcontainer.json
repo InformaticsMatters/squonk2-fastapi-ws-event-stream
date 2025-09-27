@@ -28,9 +28,11 @@
   // (see https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history)
   //
   // The user will also need a ~/k8s-config directory (kubernetes config files)
+  // as well as a ~/.kube directory
   "mounts": [
       "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached",
       "source=${localEnv:HOME}/k8s-config,target=/k8s-config,type=bind,consistency=cached",
+      "source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind,consistency=cached",
       "source=projectname-bashhistory,target=/commandhistory,type=volume"
   ],
   "customizations": {
@@ -52,7 +54,6 @@
     }
   },
   "postCreateCommand": {
-		"Install Python requirements": "pip3 install --user -r requirements.txt",
 		"Install Pre-Commit": "pre-commit install -t commit-msg -t pre-commit",
     "Fix Volume Permissions": "sudo chown -R $(whoami): /commandhistory"
 	},

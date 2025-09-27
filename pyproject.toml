@@ -36,3 +36,19 @@ kubernetes = "^31.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.commitizen]
+name = "cz_customize"
+version_provider = "pep621"
+prerelease_offset = 1
+
+[tool.commitizen.customize]
+schema_pattern = "(build|bump|chore|ci|dev|docs|feat|fix|perf|refactor|remove|style|test):(\\s.*)"
+commit_parser = "^(?P<change_type>build|bump|chore|ci|dev|docs|feat|fix|perf|refactor|remove|style|test):\\s(?P<message>.*)?"
+# By excluding 'bump', 'ci', 'dev', and 'docs' from
+# 'change_type_map', 'change_type_order' and 'changelog_pattern'
+# we omit the corresponding commit comments from the CHANGELOG.
+# The order of types in the CHANGELOG is dictated by the type_order
+change_type_map = {"feat" = "New Features", "fix" = "Bug Fixes", "perf" = "Performance Improvements", "refactor" = "Refactoring", "chore" = "General Improvements", "remove" = "Removed", "style" = "Stylistic Changes", "test" = "Testing", "build" = "Build"}
+change_type_order = ["BREAKING CHANGE", "New Features", "Bug Fixes", "Performance Improvements", "Refactoring", "General Improvements", "Removed", "Stylistic Changes", "Testing", "Build"]
+changelog_pattern = "^(build|chore|feat|fix|perf|refactor|remove|style|test)"
