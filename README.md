@@ -62,64 +62,9 @@ current health of your clone with: -
     pre-commit run --all-files
 
 ## Installation
-The repository contains an ansible playbook that can be used to simplify the
-deployment of the application into a pre-existing Kubernetes **Namespace** but you will
-need to customise the playbook by first defining your own variables.
-
-To install the application follow the steps below.
-
->   You will need access to your Kubernetes cluster and a **KUBECONFIG** file.
-
-From a poetry shell, install the required dependencies: -
-
-    poetry install --with deploy
-
-Move to the `ansible` directory and define your variables: -
-
-    pushd ansible
-
->   All the _required_ variables can be found at the top of the standard
-    `default/main.yaml` file, but you are advised to inspect all the variables to
-    ensure they are suitable for your installation (variables are defined in
-    `default/main.yaml` and `vars/main.yaml`).
-
-You can create a `parameters.yaml` file and set your variables there.
-A `parameters-template.yaml` file is provided as an example. This is protected from
-accidental commits as it's in the project's `.gitignore` file: -
-
-    cp parameters-template.yaml parameters.yaml
-
-Then, when you have set your variables, identify your **KUBECONFIG** file,
-and run the playbook: -
-
-    export KUBECONFIG=~/k8s-config/nw-xch-dev.yaml
-    ansible-playbook site.yaml -e @parameters.yaml
-
-Once deployed the application's internal API will be behind the service
-`ess-ws-api` on port `8081`, and available to any application running in the
-cluster. The Account Server will be able to manage event streams via the URL
-`http://ess-ws-api:8081/event-stream/`.
-
-The external web-socket service will be available on the ingress host you've specified,
-as either a `ws://` or `wss://` service, depending on whether you have set
-the Ansible variable `ess_cert_issuer`. If the host is `example.com` you should be able
-to connect to an unsecured web socket using the URL `ws://example.com/event-stream/{uuid}`
-or `wss://example.com/event-stream/{uuid}` for a secured connection.
-
-To update the running image (to deploy a new tagged version) just re-run the
-playbook with a suitable value for `ess_image_tag`.
-
-To remove the application run the playbook again, but set the `ess_state` variable
-to `absent`: -
-
-    ansible-playbook site.yaml -e @parameters.yaml -e ess_state=absent
-
-## Troubleshooting
-The deployed application uses the Python logging framework. Significant events
-are written to the console, and in a rotating file in `/logs/es.log`.
-
-Access logging is written to the rotating file handler `/logs/access.log`,
-and WSGI logging to `/logs/wsgi.log`.
+Use our peer repository (squonk2-fastapi-ws-event-stream-ansible), which
+contains an ansible playbook that can be used to simplify the
+deployment of the application into a pre-existing Kubernetes **Namespace**.
 
 ## Local development
 You can build and run the service using `docker compose`: -
@@ -296,6 +241,13 @@ events for several days.
     especially if you are storing these values in a file or database. You might
     instead record message references in _blocks_ of 100, or 1,000.
 
+## Troubleshooting
+The deployed application uses the Python logging framework. Significant events
+are written to the console, and in a rotating file in `/logs/es.log`.
+
+Access logging is written to the rotating file handler `/logs/access.log`,
+and WSGI logging to `/logs/wsgi.log`.
+
 ---
 
 [black]: https://black.readthedocs.io/en/stable
@@ -307,3 +259,4 @@ events for several days.
 [poetry]: https://python-poetry.org
 [python-dateutil]: https://github.com/dateutil/dateutil
 [rabbitmq]: https://www.rabbitmq.com
+[squonk2-fastapi-ws-event-stream-ansible]: https://github.com/InformaticsMatters/squonk2-fastapi-ws-event-stream-ansible
