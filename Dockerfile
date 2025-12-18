@@ -1,5 +1,5 @@
 # The default base image
-ARG from_image=python:3.13.6-alpine3.22
+ARG from_image=python:3.13.11-alpine3.23
 FROM ${from_image} AS python-base
 
 # Labels
