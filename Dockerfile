@@ -21,23 +21,25 @@ RUN apk add --no-cache \
 
 ##################################################################
 #
-# Second stage, poetry installation.
+# Second stage, uv installation.
 #
 ##################################################################
-FROM python-base AS poetry-base
-ARG POETRY_VERSION=1.8.5
+FROM python-base AS uv-base
+ARG UV_VERSION=0.11.21
 
-RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
+RUN pip install --no-cache-dir uv==${UV_VERSION}
 
 WORKDIR /
-COPY poetry.lock pyproject.toml /
+COPY uv.lock pyproject.toml .python-version /
 
-# Despite letting poetry create virtualenv here, we're not using it in
-# the final container, we just let poetry install the packages and
-# copy them later. POETRY_VIRTUALENVS_IN_PROJECT flag tells poetry to
-# create the venv to project's directory (.venv). This way the
-# location is predictable
-RUN POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-root --only main --no-directory
+# We're not using uv in the final container, we just let it install the
+# packages and copy them later. UV_PROJECT_ENVIRONMENT puts the venv at a
+# predictable location (/.venv). The image already provides the interpreter
+# we want, so uv must use that rather than fetching a managed one -
+# there are no managed builds for musl on every architecture we build for.
+ENV UV_PYTHON_DOWNLOADS=never
+RUN UV_PROJECT_ENVIRONMENT=/.venv \
+    uv sync --frozen --no-dev --no-install-project --python python3.13
 
 ##################################################################
 #
@@ -47,7 +49,7 @@ RUN POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-root --only main --no
 ##################################################################
 FROM python-base AS final
 
-COPY --from=poetry-base /.venv /.venv
+COPY --from=uv-base /.venv /.venv
 
 ENV PYTHONPATH="/.venv/lib/python3.13/site-packages/"
 ENV PATH=/.venv/bin:$PATH

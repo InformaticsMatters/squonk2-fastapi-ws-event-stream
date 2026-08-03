@@ -43,9 +43,9 @@ jobs:
         python-version: '3.13'
     - name: Run pre-commit (all files)
       run: |
-        pip install --no-cache-dir poetry=='1.8.5'
-        poetry install --no-root --no-directory --with dev
-        poetry run pre-commit run --all-files
+        pip install --no-cache-dir uv=='0.11.21'
+        uv sync --frozen
+        uv run pre-commit run --all-files
 
   build:
     runs-on: ubuntu-latest

@@ -1,37 +1,40 @@
-[tool.poetry]
+[project]
 name = "squonk2-fastapi-ws-event-stream"
 version = "3.0.0"
-package-mode = false
 description = "A Squonk2 Python FastAPI AS EvenStream Service"
-authors = ["Alan Christie <alan.christie@matildapeak.com>"]
+authors = [{ name = "Alan Christie", email = "alan.christie@matildapeak.com" }]
 readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    # Locked versions (for now)
+    "fastapi>=0.116.1,<0.117.0",
+    "uvicorn[standard]>=0.35.0,<0.36.0",
+    "python-dateutil==2.9.0",
+    # Flexible versions
+    "pymemcache>=4.0.0,<5.0.0",
+    "pydantic>=2.11.7,<3.0.0",
+    "rstream>=0.30.0,<0.31.0",
+    "shortuuid>=1.0.13,<2.0.0",
+]
 
-[tool.poetry.dependencies]
-# Locked versions (for now)
-fastapi = "^0.116.1"
-uvicorn = {extras = ["standard"], version = "^0.35.0"}
-python-dateutil = "2.9.0"
-# Flexible versions
-pymemcache = "^4.0.0"
-pydantic = "^2.11.7"
-python = "^3.13"
-rstream = "^0.30.0"
-shortuuid = "^1.0.13"
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0.0,<5.0.0",
+    "pylint>=3.3.4,<4.0.0",
+    "simple-websocket>=1.1.0,<2.0.0",
+    "websockets>=15.0.0,<16.0.0",
+    "httpie>=3.2.4,<4.0.0",
+    "isort>=6.0.0,<7.0.0",
+    "black>=25.1.0,<26.0.0",
+    "mypy>=1.15.0,<2.0.0",
+    "im-protobuf>=7.1.0,<8.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pre-commit = "^4.0.0"
-pylint = "^3.3.4"
-simple_websocket = "^1.1.0"
-websockets = "^15.0.0"
-httpie = "^3.2.4"
-isort = "^6.0.0"
-black = "^25.1.0"
-mypy = "^1.15.0"
-im-protobuf = "^7.1.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+# There is nothing to build or publish here -
+# the application is delivered as a container image,
+# so uv must not try to install this project into its own environment.
+package = false
 
 [tool.commitizen]
 name = "cz_customize"
