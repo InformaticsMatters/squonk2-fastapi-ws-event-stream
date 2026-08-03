@@ -4,14 +4,18 @@ and deletes the streams; this service only serves them.
 
 ## Commands
 
-Set-up (Poetry, `package-mode = false` — there is nothing to build/publish):
+Set-up (uv, `[tool.uv] package = false` — there is nothing to build/publish, so uv
+never installs the project itself, only its dependencies):
 
-    poetry install --with dev
-    pre-commit install -t commit-msg -t pre-commit
+    uv sync
+    uv run pre-commit install -t commit-msg -t pre-commit
+
+`uv sync` builds `.venv` from `uv.lock` using the interpreter in `.python-version`
+(3.13, matching the container base image). Run project commands through `uv run`.
 
 Lint/format (this is also exactly what CI runs — pylint, black, isort, commitizen):
 
-    pre-commit run --all-files
+    uv run pre-commit run --all-files
 
 Run locally (builds the image, plus RabbitMQ and memcached):
 
@@ -26,8 +30,9 @@ Exercise it (internal API on `8081`, WebSockets on `8080`):
     ./ampq_publisher.py abc            # in another
     http delete localhost:8081/event-stream/$(echo $ESS_LOC | cut -d/ -f5) -b
 
-`ampq_publisher.py` imports `aio_pika`, which is *not* in `pyproject.toml` or the lock
-file; install it separately if you need the publisher.
+`ampq_publisher.py` imports `aio_pika`, which is *not* in `pyproject.toml` or `uv.lock`;
+install it separately (`uv run --with aio-pika ./ampq_publisher.py <key>`) if you need
+the publisher.
 
 ## Testing
 

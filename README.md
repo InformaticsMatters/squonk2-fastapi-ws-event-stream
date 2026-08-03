@@ -10,7 +10,7 @@
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Packaged with Poetry](https://img.shields.io/badge/packaging-poetry-cyan.svg)](https://python-poetry.org/)
+[![Packaged with uv](https://img.shields.io/badge/packaging-uv-cyan.svg)](https://docs.astral.sh/uv/)
 
 A FastAPI (Python) implementation of the Squonk2 (AS) Event Streaming service.
 
@@ -44,7 +44,7 @@ The project uses: -
   upstream repository
 - [Commitizen] to enforce a [Conventional Commit] commit message format
 - [Black] as a code formatter
-- [Poetry] as a package manager (for the b/e)
+- [uv] as a package manager (for the b/e)
 
 You **MUST** comply with these choices in order to  contribute to the project.
 
@@ -52,14 +52,18 @@ To get started review the pre-commit utility and the conventional commit style
 and then set-up your local clone by following the **Installation** and
 **Quick Start** sections: -
 
-    poetry shell
-    poetry install --with dev
-    pre-commit install -t commit-msg -t pre-commit
+    uv sync
+    uv run pre-commit install -t commit-msg -t pre-commit
+
+The `uv sync` creates a virtual environment in `.venv` using the interpreter
+named in `.python-version`, and installs the dependencies pinned in `uv.lock`.
+Prefix commands with `uv run` to use that environment, or activate it with
+`source .venv/bin/activate`.
 
 Now the project's rules will run on every commit, and you can check the
 current health of your clone with: -
 
-    pre-commit run --all-files
+    uv run pre-commit run --all-files
 
 ## Installation
 Use our peer repository (squonk2-fastapi-ws-event-stream-ansible), which
@@ -256,7 +260,7 @@ and WSGI logging to `/logs/wsgi.log`.
 [event streams]: https://gitlab.com/informaticsmatters/squonk2-account-server/-/wikis/event-streams
 [fastapi]: https://fastapi.tiangolo.com
 [pre-commit]: https://pre-commit.com
-[poetry]: https://python-poetry.org
 [python-dateutil]: https://github.com/dateutil/dateutil
 [rabbitmq]: https://www.rabbitmq.com
 [squonk2-fastapi-ws-event-stream-ansible]: https://github.com/InformaticsMatters/squonk2-fastapi-ws-event-stream-ansible
+[uv]: https://docs.astral.sh/uv
